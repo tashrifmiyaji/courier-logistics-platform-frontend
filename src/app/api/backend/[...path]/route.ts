@@ -49,6 +49,21 @@ async function forward(
     responseHeaders.append("set-cookie", cookieHeader);
   }
 
+  if (path[0] === "auth" && responseType?.includes("application/json")) {
+    const payload = (await upstream.json()) as {
+      data?: Record<string, unknown>;
+      [key: string]: unknown;
+    };
+    if (payload.data) {
+      delete payload.data.accessToken;
+      delete payload.data.refreshToken;
+    }
+    return NextResponse.json(payload, {
+      status: upstream.status,
+      headers: responseHeaders,
+    });
+  }
+
   return new NextResponse(upstream.body, {
     status: upstream.status,
     headers: responseHeaders,

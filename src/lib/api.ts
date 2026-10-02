@@ -7,9 +7,11 @@ export type User = {
   phone?: string | null;
   role: Role;
   courierProfile?: {
+    id?: string;
     availability: "AVAILABLE" | "BUSY" | "OFFLINE";
     totalDeliveries: number;
     earningsBalance: string | number;
+    vehicleType?: "BICYCLE" | "BIKE" | "VAN" | "TRUCK";
   } | null;
 };
 
@@ -70,7 +72,7 @@ export async function apiRequest<T>(
   path: string,
   init: RequestInit = {},
 ): Promise<ApiEnvelope<T>> {
-  const response = await fetch(`/api/backend${path}`, {
+  const requestInit: RequestInit = {
     ...init,
     credentials: "include",
     cache: "no-store",
@@ -80,17 +82,28 @@ export async function apiRequest<T>(
         : {}),
       ...init.headers,
     },
-  });
+  };
+  const url = `/api/backend${path}`;
+  let response = await fetch(url, requestInit);
+  if (response.status === 401 && !path.startsWith("/auth/")) {
+    const refresh = await fetch("/api/backend/auth/refresh-token", {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    if (refresh.ok) response = await fetch(url, requestInit);
+  }
   const body = (await response.json().catch(() => null)) as
     | ApiEnvelope<T>
     | { message?: string; errors?: { message?: string }[] }
     | null;
 
   if (!response.ok) {
-    const message =
-      body && "message" in body
-        ? (body.message ?? body.errors?.[0]?.message)
-        : undefined;
+    const message = body && "message" in body
+      ? (body.message ?? ("errors" in body ? body.errors?.[0]?.message : undefined))
+      : undefined;
     if (response.status === 401 && typeof window !== "undefined") {
       window.dispatchEvent(new Event("parcelpilot:unauthorized"));
     }

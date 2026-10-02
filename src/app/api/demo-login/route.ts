@@ -60,6 +60,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (body?.data) {
+    delete body.data.accessToken;
+    delete body.data.refreshToken;
+  }
   const result = NextResponse.json(body);
   for (const cookie of response.headers.getSetCookie()) {
     result.headers.append("set-cookie", cookie);

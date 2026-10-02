@@ -81,17 +81,21 @@ export function LoginForm() {
   async function demoLogin(role: Role) {
     setError("");
     setNotice("");
-    const response = await fetch("/api/demo-login", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ role }),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      setError(body.message || `Demo ${role.toLowerCase()} login failed.`);
-      return;
+    try {
+      const response = await fetch("/api/demo-login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setError(body.message || `Demo ${role.toLowerCase()} login failed.`);
+        return;
+      }
+      finishLogin(body.data.user as User);
+    } catch {
+      setError("The courier API is unavailable. Please try again.");
     }
-    finishLogin(body.data.user as User);
   }
 
   const submitting = loginMutation.isPending || registerMutation.isPending;
