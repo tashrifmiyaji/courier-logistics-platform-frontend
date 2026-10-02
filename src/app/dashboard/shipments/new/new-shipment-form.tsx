@@ -58,7 +58,9 @@ export function NewShipmentForm() {
         body: JSON.stringify({
           ...values,
           codAmount: values.codAmount === "" ? undefined : Number(values.codAmount),
-          scheduledPickupAt: values.scheduledPickupAt || undefined,
+          scheduledPickupAt: values.scheduledPickupAt
+            ? new Date(values.scheduledPickupAt).toISOString()
+            : undefined,
         }),
       });
       return response.data;
