@@ -4,7 +4,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Box, Check, CircleDashed, MapPin, PackageCheck, Search, Truck } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { apiRequest, formatStatus, type ShipmentStatus } from "@/lib/api";
@@ -27,12 +28,15 @@ type TrackingData = {
   }[];
 };
 type TrackingValues = z.infer<typeof trackingSchema>;
-const steps: ShipmentStatus[] = ["PENDING", "PICKED_UP", "AT_ORIGIN_HUB", "IN_TRANSIT", "AT_DESTINATION_HUB", "OUT_FOR_DELIVERY", "DELIVERED"];
+const steps: ShipmentStatus[] = ["PENDING", "PICKUP_SCHEDULED", "PICKED_UP", "AT_ORIGIN_HUB", "IN_TRANSIT", "AT_DESTINATION_HUB", "OUT_FOR_DELIVERY", "DELIVERED"];
 
-export default function TrackPage() {
+function TrackingView() {
+  const searchParams = useSearchParams();
+  const initialCode = searchParams.get("code") || "";
   const [result, setResult] = useState<TrackingData | null>(null);
   const [notFound, setNotFound] = useState("");
-  const form = useForm<TrackingValues>({ resolver: zodResolver(trackingSchema) });
+  const form = useForm<TrackingValues>({ resolver: zodResolver(trackingSchema), defaultValues: { trackingCode: initialCode } });
+  const { reset, handleSubmit } = form;
   const mutation = useMutation({
     mutationFn: async (values: TrackingValues) => {
       const response = await apiRequest<TrackingData>(`/shipments/track/${encodeURIComponent(values.trackingCode)}`);
@@ -41,6 +45,12 @@ export default function TrackPage() {
     onSuccess: (data) => { setResult(data); setNotFound(""); },
     onError: (error) => { setResult(null); setNotFound(error instanceof Error ? error.message : "Tracking lookup failed."); },
   });
+  useEffect(() => {
+    if (initialCode) {
+      reset({ trackingCode: initialCode });
+      void handleSubmit((values) => mutation.mutate(values))();
+    }
+  }, [handleSubmit, initialCode, mutation.mutate, reset]);
   const currentStep = result ? steps.indexOf(result.status) : -1;
 
   return (
@@ -79,9 +89,9 @@ export default function TrackPage() {
               <div className="my-7 flex items-start">
                 {steps.map((step, index) => {
                   const done = currentStep >= index;
-                  return <div key={step} className="flex flex-1 flex-col items-center text-center last:flex-none">
-                    <span className={`grid size-7 place-items-center rounded-full ${done ? "bg-[#176b4d] text-white" : "bg-[#eef1ed] text-[#9ba69e]"}`}>{done ? <Check size={14} /> : <span className="text-[9px] font-bold">{index + 1}</span>}</span>
-                    {index < steps.length - 1 ? <span className={`absolute mt-3 h-px w-[calc((100%-56px)/6)] translate-x-1/2 ${currentStep > index ? "bg-[#74ad88]" : "bg-[#e8ece7]"}`} /> : null}
+                  return <div key={step} className="relative flex flex-1 flex-col items-center text-center last:flex-none">
+                    <span className={`relative z-10 grid size-7 place-items-center rounded-full ${done ? "bg-[#176b4d] text-white" : "bg-[#eef1ed] text-[#9ba69e]"}`}>{done ? <Check size={14} /> : <span className="text-[9px] font-bold">{index + 1}</span>}</span>
+                    {index < steps.length - 1 ? <span aria-hidden="true" className={`absolute left-1/2 top-3.5 z-0 h-px w-full ${currentStep > index ? "bg-[#74ad88]" : "bg-[#e8ece7]"}`} /> : null}
                     <span className={`mt-2 hidden max-w-[80px] text-[9px] font-bold leading-3 sm:block ${done ? "text-[#38734c]" : "text-[#9ba69e]"}`}>{formatStatus(step)}</span>
                   </div>;
                 })}
@@ -103,4 +113,8 @@ export default function TrackPage() {
       </div>
     </main>
   );
+}
+
+export default function TrackPage() {
+  return <Suspense fallback={<main className="grid min-h-screen place-items-center text-sm text-[#718078]">Loading tracking…</main>}><TrackingView /></Suspense>;
 }
