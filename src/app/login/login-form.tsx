@@ -3,8 +3,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { ArrowRight, Eye, EyeOff, LoaderCircle, ShieldCheck, Truck, UserRound, Wrench } from "lucide-react";
+import Script from "next/script";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ApiError, apiRequest, type Role, type User } from "@/lib/api";
@@ -33,6 +34,34 @@ const demoLoginResponseSchema = z.object({
 type LoginValues = z.infer<typeof loginSchema>;
 type RegisterValues = z.infer<typeof registerSchema>;
 
+type GoogleCredentialResponse = { credential?: string };
+
+declare global {
+  interface Window {
+    google?: {
+      accounts: {
+        id: {
+          initialize: (options: {
+            client_id: string;
+            callback: (response: GoogleCredentialResponse) => void;
+            auto_select: boolean;
+          }) => void;
+          renderButton: (
+            parent: HTMLElement,
+            options: {
+              theme: "outline";
+              size: "large";
+              shape: "rectangular";
+              text: "continue_with";
+              width: number;
+            },
+          ) => void;
+        };
+      };
+    };
+  }
+}
+
 const demoOptions: { role: Role; label: string; icon: typeof UserRound; tone: string }[] = [
   { role: "CUSTOMER", label: "Customer", icon: UserRound, tone: "bg-[#e9f3eb] text-[#39724f]" },
   { role: "COURIER", label: "Courier", icon: Truck, tone: "bg-[#f7efe2] text-[#9c743e]" },
@@ -52,6 +81,8 @@ export function LoginForm() {
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [demoLoading, setDemoLoading] = useState<Role | null>(null);
+  const googleButtonRef = useRef<HTMLDivElement>(null);
+  const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
   const loginForm = useForm<LoginValues>({ resolver: zodResolver(loginSchema) });
   const registerForm = useForm<RegisterValues>({ resolver: zodResolver(registerSchema) });
 
@@ -88,6 +119,40 @@ export function LoginForm() {
     },
     onError: (cause) => setError(cause instanceof Error ? cause.message : "Registration failed."),
   });
+  const googleLoginMutation = useMutation({
+    mutationFn: async (idToken: string) => {
+      const response = await apiRequest<{ user: User }>("/auth/google", {
+        method: "POST",
+        body: JSON.stringify({ idToken }),
+      });
+      return response.data.user;
+    },
+    onSuccess: finishLogin,
+    onError: (cause) => setError(cause instanceof Error ? cause.message : "Google sign-in failed."),
+  });
+  const initializeGoogleButton = useCallback(() => {
+    if (!googleClientId || !googleButtonRef.current || !window.google) return;
+    googleButtonRef.current.replaceChildren();
+    window.google.accounts.id.initialize({
+      client_id: googleClientId,
+      callback: (response) => {
+        if (!response.credential) {
+          setError("Google did not return a sign-in credential. Please try again.");
+          return;
+        }
+        setError("");
+        googleLoginMutation.mutate(response.credential);
+      },
+      auto_select: false,
+    });
+    window.google.accounts.id.renderButton(googleButtonRef.current, {
+      theme: "outline",
+      size: "large",
+      shape: "rectangular",
+      text: "continue_with",
+      width: 300,
+    });
+  }, [googleClientId, googleLoginMutation.mutate]);
 
   async function demoLogin(role: Role) {
     if (demoLoading) return;
@@ -118,7 +183,7 @@ export function LoginForm() {
     }
   }
 
-  const submitting = loginMutation.isPending || registerMutation.isPending;
+  const submitting = loginMutation.isPending || registerMutation.isPending || googleLoginMutation.isPending;
 
   return (
     <>
@@ -169,6 +234,20 @@ export function LoginForm() {
           <button type="submit" disabled={submitting} className="mt-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#176b4d] text-sm font-extrabold text-white transition hover:bg-[#10563d] disabled:cursor-not-allowed disabled:opacity-60">{submitting ? <LoaderCircle className="animate-spin" size={17} /> : "Log in securely"}{!submitting ? <ArrowRight size={16} /> : null}</button>
         </form>
       )}
+
+      {!register && googleClientId ? (
+        <>
+          <div className="my-5 flex items-center gap-3"><span className="h-px flex-1 bg-[#e9ede7]" /><span className="text-[10px] font-bold uppercase tracking-[.13em] text-[#9aa49c]">or continue with</span><span className="h-px flex-1 bg-[#e9ede7]" /></div>
+          <div ref={googleButtonRef} className="flex min-h-10 justify-center" />
+          {(submitting || googleLoginMutation.isPending) ? <p role="status" className="mt-2 text-center text-[10px] font-semibold text-[#718078]">Signing in securely…</p> : null}
+          <Script
+            src="https://accounts.google.com/gsi/client"
+            strategy="afterInteractive"
+            onReady={initializeGoogleButton}
+            onError={() => setError("Google sign-in could not load. Check your connection and try again.")}
+          />
+        </>
+      ) : null}
 
       <div className="my-6 flex items-center gap-3"><span className="h-px flex-1 bg-[#e9ede7]" /><span className="text-[10px] font-bold uppercase tracking-[.13em] text-[#9aa49c]">or try a demo account</span><span className="h-px flex-1 bg-[#e9ede7]" /></div>
       <div className="grid grid-cols-3 gap-2">

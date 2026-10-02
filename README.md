@@ -14,7 +14,7 @@ A role-aware Next.js App Router frontend for the B7A6 courier logistics API. Cus
 ## Run locally
 
 1. Start the B7A6 backend and its database. Its API should be reachable at `http://localhost:4000/api/v1`.
-2. Copy `.env.local.example` to `.env.local` and set `BACKEND_API_URL`.
+2. Copy `.env.local.example` to `.env.local`. Set `BACKEND_API_URL` and `NEXT_PUBLIC_GOOGLE_CLIENT_ID`.
 3. Configure the backend `FRONTEND_URL` as `http://localhost:3000`.
 4. Configure backend bKash sandbox credentials and set `BKASH_CALLBACK_URL` to the public backend URL followed by `/api/v1/payments/bkash/callback`.
 5. Run:
@@ -40,6 +40,10 @@ DEMO_COURIER_PASSWORD=
 ```
 
 Use dedicated evaluation accounts. The backend must contain those accounts; its courier accounts are created by an administrator. Never commit actual credentials. If the variables are unset, the demo buttons explain that demo login is not configured.
+
+## Google sign-in
+
+Google sign-in is shown on the login tab when `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is configured. The frontend sends Google's ID token to the backend `/auth/google` endpoint; the backend verifies it against its own `GOOGLE_CLIENT_ID` and sets the same HTTP-only session cookies as password login. Configure the same Google OAuth client ID in the frontend `.env.local` and backend `.env`. In Google Cloud Console, add the exact frontend origins used for local and deployed testing (for example `http://localhost:3000` and your deployed frontend origin) to the OAuth client's authorized JavaScript origins. Restart the frontend after changing `NEXT_PUBLIC_*` values.
 
 ## Frontend workflows
 
@@ -71,7 +75,7 @@ The frontend only initiates the backend's configured bKash provider. It redirect
 
 ## Production configuration
 
-On the frontend deployment, configure `BACKEND_API_URL` and the three demo account pairs. On the backend, configure `FRONTEND_URL` as the exact frontend origin and `BKASH_CALLBACK_URL` as the public backend callback endpoint. Use bKash sandbox values for test evaluation and live credentials only for an appropriately configured production merchant account. Do not place API secrets in `NEXT_PUBLIC_*` variables.
+On the frontend deployment, configure `BACKEND_API_URL`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, and the three demo account pairs. On the backend, configure `GOOGLE_CLIENT_ID` to the same Google OAuth client ID, `FRONTEND_URL` as the exact frontend origin, and `BKASH_CALLBACK_URL` as the public backend callback endpoint. Use bKash sandbox values for test evaluation and live credentials only for an appropriately configured production merchant account. Do not place API secrets in `NEXT_PUBLIC_*` variables; the Google client ID is public, but backend secrets are not.
 
 ## Validation
 
