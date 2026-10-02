@@ -22,7 +22,10 @@ const shipmentSchema = z.object({
   weightKg: z.coerce.number().positive("Weight must be above zero.").max(999),
   parcelType: z.string().trim().max(100).optional(),
   codAmount: z.union([z.literal(""), z.coerce.number().nonnegative()]).optional(),
-  scheduledPickupAt: z.string().optional(),
+  scheduledPickupAt: z.string().optional().refine(
+    (value) => !value || new Date(value).getTime() > Date.now(),
+    "Choose a pickup time in the future.",
+  ),
 }).refine((values) => values.pickupHubId !== values.deliveryHubId, {
   path: ["deliveryHubId"],
   message: "Choose a different delivery hub.",
@@ -117,7 +120,7 @@ export function NewShipmentForm() {
                   <label className="text-[10px] font-bold text-[#66756b]">Weight (kg)<span className="relative block"><Scale size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#98a39b]" /><input {...form.register("weightKg")} type="number" step="0.1" min="0.1" max="999" className={`${fieldClass} pl-9`} /></span><FieldError>{form.formState.errors.weightKg?.message}</FieldError></label>
                   <label className="text-[10px] font-bold text-[#66756b]">Parcel type <span className="font-normal text-[#9aa49c]">— optional</span><input {...form.register("parcelType")} maxLength={100} placeholder="Documents, clothing, etc." className={fieldClass} /><FieldError>{form.formState.errors.parcelType?.message}</FieldError></label>
                   <label className="text-[10px] font-bold text-[#66756b]">Cash on delivery <span className="font-normal text-[#9aa49c]">— optional</span><input {...form.register("codAmount")} type="number" min="0" step="1" placeholder="Amount in BDT" className={fieldClass} /><FieldError>{form.formState.errors.codAmount?.message}</FieldError><span className="mt-1 block text-[9px] font-normal text-[#98a39b]">The delivery charge is separate. COD collection is recorded with the booking.</span></label>
-                  <label className="text-[10px] font-bold text-[#66756b]">Schedule pickup <span className="font-normal text-[#9aa49c]">— optional</span><input {...form.register("scheduledPickupAt")} type="datetime-local" className={fieldClass} /><span className="mt-1 block text-[9px] font-normal text-[#98a39b]">Leave empty for the earliest pickup.</span></label>
+                  <label className="text-[10px] font-bold text-[#66756b]">Schedule pickup <span className="font-normal text-[#9aa49c]">— optional</span><input {...form.register("scheduledPickupAt")} type="datetime-local" className={fieldClass} /><FieldError>{form.formState.errors.scheduledPickupAt?.message}</FieldError><span className="mt-1 block text-[9px] font-normal text-[#98a39b]">Choose a future time or leave empty for the earliest pickup.</span></label>
                 </div>
               </fieldset>
               <div className="flex flex-col gap-3 border-t border-[#edf0eb] pt-5 sm:flex-row sm:justify-between">
