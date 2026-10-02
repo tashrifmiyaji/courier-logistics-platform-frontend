@@ -41,6 +41,7 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [demoLoading, setDemoLoading] = useState<Role | null>(null);
   const loginForm = useForm<LoginValues>({ resolver: zodResolver(loginSchema) });
   const registerForm = useForm<RegisterValues>({ resolver: zodResolver(registerSchema) });
 
@@ -79,8 +80,10 @@ export function LoginForm() {
   });
 
   async function demoLogin(role: Role) {
+    if (demoLoading) return;
     setError("");
     setNotice("");
+    setDemoLoading(role);
     try {
       const response = await fetch("/api/demo-login", {
         method: "POST",
@@ -95,6 +98,8 @@ export function LoginForm() {
       finishLogin(body.data.user as User);
     } catch {
       setError("The courier API is unavailable. Please try again.");
+    } finally {
+      setDemoLoading(null);
     }
   }
 
@@ -153,8 +158,8 @@ export function LoginForm() {
       <div className="my-6 flex items-center gap-3"><span className="h-px flex-1 bg-[#e9ede7]" /><span className="text-[10px] font-bold uppercase tracking-[.13em] text-[#9aa49c]">or try a demo account</span><span className="h-px flex-1 bg-[#e9ede7]" /></div>
       <div className="grid grid-cols-3 gap-2">
         {demoOptions.map(({ role, label, icon: Icon, tone }) => (
-          <button key={role} type="button" onClick={() => void demoLogin(role)} disabled={submitting} className="group flex flex-col items-center gap-2 rounded-xl border border-[#e6ebe4] bg-white py-3 text-[10px] font-extrabold text-[#59675e] transition hover:-translate-y-0.5 hover:border-[#cadbce] hover:shadow-sm disabled:opacity-50">
-            <span className={`grid size-8 place-items-center rounded-xl ${tone}`}><Icon size={16} /></span>{label}
+          <button key={role} type="button" onClick={() => void demoLogin(role)} disabled={submitting || demoLoading !== null} className="group flex flex-col items-center gap-2 rounded-xl border border-[#e6ebe4] bg-white py-3 text-[10px] font-extrabold text-[#59675e] transition hover:-translate-y-0.5 hover:border-[#cadbce] hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50">
+            <span className={`grid size-8 place-items-center rounded-xl ${tone}`}>{demoLoading === role ? <LoaderCircle className="animate-spin" size={16} /> : <Icon size={16} />}</span>{label}
           </button>
         ))}
       </div>
