@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Box, Check, CircleDashed, MapPin, PackageCheck, Search, Truck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Box, Check, CircleDashed, Clipboard, MapPin, PackageCheck, Search, Truck } from "lucide-react";
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -35,6 +35,7 @@ function TrackingView() {
   const initialCode = searchParams.get("code") || "";
   const [result, setResult] = useState<TrackingData | null>(null);
   const [notFound, setNotFound] = useState("");
+  const [copyMessage, setCopyMessage] = useState("");
   const form = useForm<TrackingValues>({ resolver: zodResolver(trackingSchema), defaultValues: { trackingCode: initialCode } });
   const { reset, handleSubmit } = form;
   const mutation = useMutation({
@@ -76,7 +77,7 @@ function TrackingView() {
         {result ? (
           <section aria-live="polite" className="mx-auto mt-10 max-w-[750px] rounded-[26px] border border-[#e2e9e1] bg-white p-5 shadow-[0_25px_70px_-48px_#294d36] sm:p-8">
             <div className="flex flex-col justify-between gap-4 border-b border-[#edf0eb] pb-5 sm:flex-row sm:items-start">
-              <div><p className="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#8b988f]">Tracking code</p><p className="mt-1 font-mono text-lg font-bold tracking-wide">{result.trackingCode}</p></div>
+              <div><p className="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#8b988f]">Tracking code</p><p className="mt-1 font-mono text-lg font-bold tracking-wide">{result.trackingCode}</p><button type="button" onClick={async () => { try { await navigator.clipboard.writeText(result.trackingCode); setCopyMessage("Tracking code copied."); } catch { setCopyMessage("Could not copy the tracking code. Select it to copy manually."); } }} className="mt-2 inline-flex items-center gap-1.5 text-[10px] font-bold text-[#34744d] hover:underline"><Clipboard size={13} /> Copy tracking code</button>{copyMessage ? <p role="status" className="mt-1 text-[10px] text-[#718078]">{copyMessage}</p> : null}</div>
               <span className="inline-flex w-fit items-center gap-2 rounded-full bg-[#e9f5ed] px-3 py-1.5 text-xs font-extrabold text-[#3c8057]"><span className="size-2 rounded-full bg-[#58a475]" />{formatStatus(result.status)}</span>
             </div>
             <div className="grid gap-4 border-b border-[#edf0eb] py-5 sm:grid-cols-2">
