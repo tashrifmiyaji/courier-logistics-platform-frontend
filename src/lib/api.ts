@@ -110,7 +110,20 @@ export async function apiRequest<T>(
     throw new ApiError(message || "We couldn't complete that request.", response.status);
   }
 
-  return body as ApiEnvelope<T>;
+  if (
+    !body ||
+    typeof body !== "object" ||
+    !("success" in body) ||
+    body.success !== true ||
+    !("data" in body)
+  ) {
+    const message = body && "message" in body && typeof body.message === "string"
+      ? body.message
+      : "The API returned an invalid response.";
+    throw new ApiError(message, response.status);
+  }
+
+  return body;
 }
 
 export function formatStatus(status: string) {
