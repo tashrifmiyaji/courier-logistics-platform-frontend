@@ -156,7 +156,7 @@ export function DashboardShell() {
   const setUser = useAuthStore((state) => state.setUser);
   const [error, setError] = useState("");
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const tab = searchParams.get("tab") || "overview";
+  const requestedTab = searchParams.get("tab") || "overview";
   const searchFilter = searchParams.get("search") || "";
   const statusFilter = searchParams.get("status") || "";
 
@@ -181,6 +181,7 @@ export function DashboardShell() {
 
   const role: Role = user?.role || "CUSTOMER";
   const navItems = role === "ADMIN" ? adminItems : role === "COURIER" ? courierItems : customerItems;
+  const tab = navItems.some((item) => item.id === requestedTab) ? requestedTab : "overview";
   const shipmentQuery = useQuery({
     queryKey: ["shipments", role, searchFilter, statusFilter],
     queryFn: async () => {
