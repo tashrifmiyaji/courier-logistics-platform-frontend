@@ -20,6 +20,16 @@ const registerSchema = z.object({
   password: z.string().min(8, "Use at least 8 characters.").max(72),
   phone: z.string().trim().min(8, "Enter a valid phone number.").max(20).optional().or(z.literal("")),
 });
+const demoLoginResponseSchema = z.object({
+  data: z.object({
+    user: z.object({
+      id: z.string(),
+      name: z.string(),
+      email: z.string(),
+      role: z.enum(["CUSTOMER", "COURIER", "ADMIN"]),
+    }),
+  }),
+});
 type LoginValues = z.infer<typeof loginSchema>;
 type RegisterValues = z.infer<typeof registerSchema>;
 
@@ -95,7 +105,12 @@ export function LoginForm() {
         setError(body.message || `Demo ${role.toLowerCase()} login failed.`);
         return;
       }
-      finishLogin(body.data.user as User);
+      const parsed = demoLoginResponseSchema.safeParse(body);
+      if (!parsed.success) {
+        setError("Demo login returned an invalid account response.");
+        return;
+      }
+      finishLogin(parsed.data.data.user);
     } catch {
       setError("The courier API is unavailable. Please try again.");
     } finally {
