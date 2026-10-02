@@ -340,7 +340,7 @@ export function DashboardShell() {
       <header className="sticky top-0 z-30 border-b border-[#e5ebe3] bg-[#f8f9f6]/95 backdrop-blur-md">
         <div className="mx-auto flex h-[68px] max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-7 lg:px-10">
           <div className="flex items-center gap-3">
-            <button type="button" onClick={() => setMobileNavOpen((open) => !open)} aria-label={mobileNavOpen ? "Close navigation" : "Open navigation"} className="grid size-9 place-items-center rounded-xl border border-[#e1e8df] bg-white text-[#476052] lg:hidden">{mobileNavOpen ? <X size={18} /> : <Menu size={18} />}</button>
+            <button type="button" onClick={() => setMobileNavOpen((open) => !open)} aria-label={mobileNavOpen ? "Close navigation" : "Open navigation"} aria-expanded={mobileNavOpen} aria-controls="dashboard-navigation" className="grid size-9 place-items-center rounded-xl border border-[#e1e8df] bg-white text-[#476052] lg:hidden">{mobileNavOpen ? <X size={18} /> : <Menu size={18} />}</button>
             <Link href="/" className="flex items-center gap-2 text-[17px] font-extrabold tracking-[-.06em]"><span className="grid size-9 place-items-center rounded-xl bg-[#176b4d] text-white"><Box size={17} /></span><span>parcel<span className="text-[#176b4d]">pilot</span></span></Link>
             <span className="hidden h-6 w-px bg-[#dce4dc] sm:block" />
             <span className="hidden text-[10px] font-extrabold uppercase tracking-[.13em] text-[#829087] sm:block">{role.toLowerCase()} workspace</span>
@@ -357,7 +357,7 @@ export function DashboardShell() {
       </header>
 
       <div className="mx-auto flex max-w-[1600px]">
-        <aside className={`${mobileNavOpen ? "translate-x-0" : "-translate-x-full"} fixed bottom-0 left-0 top-[68px] z-20 w-[260px] border-r border-[#e5ebe3] bg-[#f8f9f6] p-4 transition-transform lg:sticky lg:top-[68px] lg:block lg:h-[calc(100vh-68px)] lg:translate-x-0`}>
+        <aside id="dashboard-navigation" className={`${mobileNavOpen ? "translate-x-0" : "-translate-x-full"} fixed bottom-0 left-0 top-[68px] z-20 w-[260px] border-r border-[#e5ebe3] bg-[#f8f9f6] p-4 transition-transform lg:sticky lg:top-[68px] lg:block lg:h-[calc(100vh-68px)] lg:translate-x-0`}>
           <div className="px-3 py-4"><p className="text-[9px] font-extrabold uppercase tracking-[.16em] text-[#9aa69d]">WORKSPACE</p></div>
           <nav className="space-y-1" aria-label="Workspace navigation">
             {navItems.map(({ id, label, icon: Icon }) => {
