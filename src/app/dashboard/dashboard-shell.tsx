@@ -224,7 +224,7 @@ export function DashboardShell() {
   const notificationsQuery = useQuery({
     queryKey: ["notifications"],
     queryFn: async () => (await apiRequest<Notice[]>("/users/notifications")).data,
-    enabled: tab === "notifications",
+    enabled: Boolean(user) && tab === "notifications",
   });
 
   const invalidate = async () => {
