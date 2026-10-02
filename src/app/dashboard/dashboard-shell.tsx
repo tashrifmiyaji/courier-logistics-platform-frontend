@@ -213,7 +213,7 @@ export function DashboardShell() {
   });
   const hubsQuery = useQuery({
     queryKey: ["hubs"],
-    queryFn: async () => (await apiRequest<Hub[]>("/operations/hubs?active=true")).data,
+    queryFn: async () => (await apiRequest<Hub[]>("/operations/hubs")).data,
     enabled: role === "ADMIN" && (tab === "operations" || tab === "pricing"),
   });
   const auditQuery = useQuery({
