@@ -108,8 +108,8 @@ export function LoginForm() {
   return (
     <>
       <div className="mb-6 grid grid-cols-2 rounded-xl bg-[#f1f4ef] p-1" role="tablist" aria-label="Account action">
-        <button type="button" role="tab" aria-selected={!register} onClick={() => { setRegister(false); setError(""); setNotice(""); }} className={`rounded-lg py-2 text-xs font-extrabold transition ${!register ? "bg-white text-[#23352b] shadow-sm" : "text-[#78857d]"}`}>Log in</button>
-        <button type="button" role="tab" aria-selected={register} onClick={() => { setRegister(true); setError(""); setNotice(""); }} className={`rounded-lg py-2 text-xs font-extrabold transition ${register ? "bg-white text-[#23352b] shadow-sm" : "text-[#78857d]"}`}>Create account</button>
+        <button type="button" role="tab" aria-selected={!register} onClick={() => { setRegister(false); setError(""); setNotice(""); loginForm.clearErrors(); registerForm.clearErrors(); }} className={`rounded-lg py-2 text-xs font-extrabold transition ${!register ? "bg-white text-[#23352b] shadow-sm" : "text-[#78857d]"}`}>Log in</button>
+        <button type="button" role="tab" aria-selected={register} onClick={() => { setRegister(true); setError(""); setNotice(""); loginForm.clearErrors(); registerForm.clearErrors(); }} className={`rounded-lg py-2 text-xs font-extrabold transition ${register ? "bg-white text-[#23352b] shadow-sm" : "text-[#78857d]"}`}>Create account</button>
       </div>
 
       {notice ? <p role="status" className="mb-4 rounded-xl border border-[#cae6d3] bg-[#eff9f1] px-3.5 py-3 text-xs font-semibold text-[#36724d]">{notice}</p> : null}
