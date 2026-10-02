@@ -71,6 +71,10 @@ export function NewShipmentForm() {
       method: "POST",
       body: JSON.stringify({ fromHubId: values.pickupHubId, toHubId: values.deliveryHubId, weightKg: values.weightKg }),
     })).data,
+    onMutate: () => {
+      setQuote(null);
+      setQuotedFor("");
+    },
     onSuccess: (data, values) => {
       setQuote(data);
       setQuotedFor(`${values.pickupHubId}:${values.deliveryHubId}:${values.weightKg}`);
