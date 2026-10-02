@@ -11,7 +11,7 @@ import { z } from "zod";
 import { apiRequest, formatStatus, type ShipmentStatus } from "@/lib/api";
 
 const trackingSchema = z.object({
-  trackingCode: z.string().trim().min(4, "Enter the tracking code from your confirmation."),
+  trackingCode: z.string().trim().min(4, "Enter the tracking code from your confirmation.").transform((code) => code.toUpperCase()),
 });
 type TrackingData = {
   trackingCode: string;
