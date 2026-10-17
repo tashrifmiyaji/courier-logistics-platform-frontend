@@ -113,7 +113,7 @@ export async function POST(request: Request) {
 
 	try {
 		const result = streamText({
-			model: "openai/gpt-5.3-chat",
+			model: "reflection/beam",
 			system: supportGuide,
 			messages: await convertToModelMessages(messages.slice(-8)),
 			maxOutputTokens: 500,
