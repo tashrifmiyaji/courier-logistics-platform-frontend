@@ -72,20 +72,46 @@ export async function POST(request: Request) {
 		);
 	}
 
-	const hasUnsupportedContent = messages.some((message) => {
-		if (message.role === "system" || message.parts.length !== 1) return true;
-		const [part] = message.parts;
-		return (
-			part.type !== "text" ||
-			part.text.length > (message.role === "user" ? 300 : 2000)
-		);
-	});
-	if (hasUnsupportedContent || messages.at(-1)?.role !== "user") {
+	const latestMessage = messages.at(-1);
+	const latestParts = latestMessage?.parts ?? [];
+	const question = latestParts
+		.filter((part) => part.type === "text")
+		.map((part) => part.text)
+		.join("\n")
+		.trim();
+
+	if (
+		latestMessage?.role !== "user" ||
+		latestParts.some((part) => part.type !== "text") ||
+		!question ||
+		question.length > 300
+	) {
 		return Response.json(
 			{ error: "Send text-only questions of up to 300 characters." },
 			{ status: 400 },
 		);
 	}
+
+	const safeMessages: UIMessage[] = messages.slice(-8).flatMap((message) => {
+		if (message.role === "system") return [];
+
+		const text = message.parts
+			.filter((part) => part.type === "text")
+			.map((part) => part.text)
+			.join("\n")
+			.trim();
+		const maxLength = message.role === "user" ? 300 : 2000;
+
+		if (!text || text.length > maxLength) return [];
+
+		return [
+			{
+				id: message.id,
+				role: message.role,
+				parts: [{ type: "text", text }],
+			},
+		];
+	});
 
 	const clientKey =
 		request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
@@ -113,10 +139,13 @@ export async function POST(request: Request) {
 
 	try {
 		const result = streamText({
-			model: "reflection/beam",
+			model: 'openai/gpt-5-nano',
 			system: supportGuide,
-			messages: await convertToModelMessages(messages.slice(-8)),
-			maxOutputTokens: 500,
+			providerOptions: {
+				openai: { reasoningEffort: "low" },
+			},
+			messages: await convertToModelMessages(safeMessages),
+			maxOutputTokens: 1000,
 			onError: ({ error }) => {
 				console.error("GOparcel AI support stream failed:", error);
 			},
