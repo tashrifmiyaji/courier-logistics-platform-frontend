@@ -38,6 +38,7 @@ export default function Home() {
           <span className="text-[19px] font-extrabold tracking-[-0.06em]">GO<span className="text-[#176b4d]">parcel</span></span>
         </Link>
         <nav className="hidden items-center gap-6 text-[12px] font-semibold text-[#5f6f66] lg:flex" aria-label="Main navigation">
+          <Link href="/explore" className="transition hover:text-[#176b4d]">Explore hubs</Link>
           <Link href="/services" className="transition hover:text-[#176b4d]">Services</Link>
           <a href="#how-it-works" className="transition hover:text-[#176b4d]">How it works</a>
           <Link href="/about" className="transition hover:text-[#176b4d]">About</Link>
@@ -53,6 +54,7 @@ export default function Home() {
           <details className="relative lg:hidden">
             <summary className="grid size-10 cursor-pointer list-none place-items-center rounded-xl border border-[#dfe6de] bg-white text-xs font-bold text-[#46594c]">Menu</summary>
             <nav className="absolute right-0 top-12 z-30 grid min-w-44 gap-1 rounded-2xl border border-[#e2e9e1] bg-white p-2 shadow-xl" aria-label="Mobile navigation">
+              <Link href="/explore" className="rounded-xl px-3 py-2.5 text-xs font-bold text-[#52645a] hover:bg-[#f2f6f1]">Explore hubs</Link>
               <Link href="/services" className="rounded-xl px-3 py-2.5 text-xs font-bold text-[#52645a] hover:bg-[#f2f6f1]">Services</Link>
               <a href="#how-it-works" className="rounded-xl px-3 py-2.5 text-xs font-bold text-[#52645a] hover:bg-[#f2f6f1]">How it works</a>
               <Link href="/about" className="rounded-xl px-3 py-2.5 text-xs font-bold text-[#52645a] hover:bg-[#f2f6f1]">About GOparcel</Link>
@@ -284,9 +286,9 @@ export default function Home() {
       <footer className="border-t border-[#e6ebe4] bg-white/65">
         <div className="mx-auto grid max-w-[1320px] gap-6 px-5 py-8 text-xs text-[#7e8b82] sm:grid-cols-2 sm:px-8 lg:grid-cols-[1.5fr_1fr_1fr_1fr] lg:px-12">
           <div><Link href="/" className="flex items-center gap-2 font-extrabold tracking-[-.04em] text-[#26372e]"><span className="grid size-7 place-items-center rounded-lg bg-[#176b4d] text-white"><Box size={14} /></span>GOparcel</Link><p className="mt-2">Moving the things that move you.</p></div>
-          <div className="grid content-start gap-2 font-semibold"><Link href="/services">Services</Link><Link href="/about">About GOparcel</Link></div>
+          <div className="grid content-start gap-2 font-semibold"><Link href="/explore">Explore hubs</Link><Link href="/services">Services</Link><Link href="/about">About GOparcel</Link></div>
           <div className="grid content-start gap-2 font-semibold"><Link href="/track">Track parcel</Link><Link href="/help">Help center</Link><Link href="/contact">Contact & support</Link></div>
-          <div className="grid content-start gap-2 font-semibold"><span className="text-[10px] font-extrabold uppercase tracking-[.14em]">Project source</span><a href="https://github.com/tashrifmiyaji/courier-logistics-platform-frontend" target="_blank" rel="noreferrer" className="w-fit hover:text-[#176b4d]">Frontend repository</a><a href="https://github.com/tashrifmiyaji/courier-logistics-platform" target="_blank" rel="noreferrer" className="w-fit hover:text-[#176b4d]">Backend repository</a></div>
+          <div className="grid content-start gap-2 font-semibold"><span className="text-[10px] font-extrabold uppercase tracking-[.14em]">Contact & community</span>{process.env.NEXT_PUBLIC_SUPPORT_EMAIL ? <a href={`mailto:${process.env.NEXT_PUBLIC_SUPPORT_EMAIL}`} className="w-fit hover:text-[#176b4d]">Email support</a> : <span className="text-[10px]">Support email not configured</span>}<a href="https://github.com/tashrifmiyaji/courier-logistics-platform-frontend" target="_blank" rel="noreferrer" className="w-fit hover:text-[#176b4d]">Frontend on GitHub</a><a href="https://github.com/tashrifmiyaji/courier-logistics-platform" target="_blank" rel="noreferrer" className="w-fit hover:text-[#176b4d]">Backend on GitHub</a></div>
           <p className="sm:col-span-2 lg:col-span-4">© {new Date().getFullYear()} GOparcel Logistics</p>
         </div>
       </footer>

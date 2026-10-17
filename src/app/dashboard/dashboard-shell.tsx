@@ -109,12 +109,16 @@ const customerItems = [
   { id: "shipments", label: "My shipments", icon: Package },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "account", label: "My account", icon: Settings2 },
+  { id: "explore", label: "Hub network", icon: MapPin },
+  { id: "track", label: "Track a parcel", icon: Search },
 ];
 const courierItems = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
   { id: "shipments", label: "Assigned deliveries", icon: Truck },
   { id: "notifications", label: "Notifications", icon: Bell },
   { id: "account", label: "Courier profile", icon: Settings2 },
+  { id: "explore", label: "Hub network", icon: MapPin },
+  { id: "track", label: "Track a parcel", icon: Search },
 ];
 const adminItems = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -255,6 +259,14 @@ export function DashboardShell() {
 
   const navTo = (id: string) => {
     setMobileNavOpen(false);
+    if (id === "explore") {
+      router.push("/explore");
+      return;
+    }
+    if (id === "track") {
+      router.push("/track");
+      return;
+    }
     router.push(id === "overview" ? "/dashboard" : `/dashboard?tab=${id}`);
   };
   const updateShipmentFilters = (filters: { search?: string; status?: string }) => {
@@ -344,7 +356,10 @@ export function DashboardShell() {
           <div className="px-3 py-4"><p className="text-[9px] font-extrabold uppercase tracking-[.16em] text-[#9aa69d]">WORKSPACE</p></div>
           <nav className="space-y-1" aria-label="Workspace navigation">
             {navItems.map(({ id, label, icon: Icon }) => {
-              const active = tab === id || (id === "shipments" && pathname.startsWith("/dashboard/shipments"));
+              const active = tab === id
+                || (id === "shipments" && pathname.startsWith("/dashboard/shipments"))
+                || (id === "explore" && (pathname === "/explore" || pathname.startsWith("/hubs/")))
+                || (id === "track" && pathname === "/track");
               return <button key={id} type="button" onClick={() => navTo(id)} aria-current={active ? "page" : undefined} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs font-bold transition ${active ? "bg-[#e4f1e7] text-[#236646]" : "text-[#69786e] hover:bg-white hover:text-[#33473a]"}`}><Icon size={16} strokeWidth={active ? 2.4 : 1.9} />{label}{id === "notifications" && unreadCount ? <span className="ml-auto grid min-w-5 place-items-center rounded-full bg-[#d5e9da] px-1.5 py-0.5 text-[9px] font-extrabold text-[#35744e]">{unreadCount}</span> : null}</button>;
             })}
           </nav>
@@ -782,7 +797,33 @@ function PricingPanel({ zones, hubs, loading, onSaved }: { zones: Zone[]; hubs: 
 }
 
 function AuditPanel({ entries, loading }: { entries: AuditEntry[]; loading: boolean }) {
-  return <section className="overflow-hidden rounded-2xl border border-[#e5ebe4] bg-white"><div className="border-b border-[#edf0eb] px-5 py-4"><h2 className="text-sm font-extrabold">Recent audit events</h2><p className="mt-1 text-[10px] text-[#8c9890]">Administrative changes and shipment workflow events.</p></div>{loading ? <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-lg" />)}</div> : <div className="divide-y divide-[#f0f2ee]">{entries.map((entry) => <article key={entry.id} className="flex flex-col justify-between gap-2 px-5 py-3.5 sm:flex-row sm:items-center"><div className="flex items-center gap-3"><span className="grid size-8 place-items-center rounded-xl bg-[#edf4ed] text-[#568368]"><Activity size={15} /></span><div><p className="text-xs font-extrabold">{formatStatus(entry.action)}</p><p className="mt-1 text-[10px] text-[#89958d]">{entry.user?.name || "System"} · {entry.entityType} · {entry.entityId.slice(0, 12)}</p></div></div><time className="pl-11 text-[10px] text-[#929d95] sm:pl-0">{new Date(entry.createdAt).toLocaleString()}</time></article>)}{!entries.length ? <p className="p-6 text-xs text-[#829087]">No audit entries yet.</p> : null}</div>}</section>;
+  const [search, setSearch] = useState("");
+  const [entityType, setEntityType] = useState("");
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+  const entityTypes = useMemo(() => [...new Set(entries.map((entry) => entry.entityType))].sort(), [entries]);
+  const filtered = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase();
+    return entries.filter((entry) => {
+      const matchesSearch = !query || [entry.action, entry.entityType, entry.entityId, entry.user?.name, entry.user?.email]
+        .some((value) => value?.toLocaleLowerCase().includes(query));
+      return matchesSearch && (!entityType || entry.entityType === entityType);
+    });
+  }, [entries, entityType, search]);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const visible = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  return <section className="overflow-hidden rounded-2xl border border-[#e5ebe4] bg-white">
+    <div className="border-b border-[#edf0eb] px-5 py-4"><h2 className="text-sm font-extrabold">Recent audit events</h2><p className="mt-1 text-[10px] text-[#8c9890]">Administrative changes and shipment workflow events.</p></div>
+    <div className="grid gap-2 border-b border-[#edf0eb] bg-[#fbfcfa] p-4 sm:grid-cols-[minmax(180px,1fr)_190px]">
+      <label className="flex h-10 items-center gap-2 rounded-lg border border-[#e3e9e1] bg-white px-3 text-[#87938b]"><Search size={14} /><span className="sr-only">Search audit events</span><input value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); }} placeholder="Search action, user, or record" className="min-w-0 flex-1 text-xs font-medium text-[#35463b] outline-none placeholder:text-[#a3ada5]" /></label>
+      <label className="sr-only" htmlFor="audit-entity-filter">Filter audit by record type</label><select id="audit-entity-filter" value={entityType} onChange={(event) => { setEntityType(event.target.value); setPage(1); }} className="h-10 rounded-lg border border-[#e3e9e1] bg-white px-3 text-xs font-bold text-[#607066]"><option value="">All record types</option>{entityTypes.map((type) => <option key={type} value={type}>{formatStatus(type)}</option>)}</select>
+    </div>
+    {loading ? <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-lg" />)}</div> : <>
+      <div className="divide-y divide-[#f0f2ee]">{visible.map((entry) => <article key={entry.id} className="flex flex-col justify-between gap-2 px-5 py-3.5 sm:flex-row sm:items-center"><div className="flex items-center gap-3"><span className="grid size-8 place-items-center rounded-xl bg-[#edf4ed] text-[#568368]"><Activity size={15} /></span><div><p className="text-xs font-extrabold">{formatStatus(entry.action)}</p><p className="mt-1 text-[10px] text-[#89958d]">{entry.user?.name || "System"} · {formatStatus(entry.entityType)} · {entry.entityId.slice(0, 12)}</p></div></div><time className="pl-11 text-[10px] text-[#929d95] sm:pl-0">{new Date(entry.createdAt).toLocaleString()}</time></article>)}{!visible.length ? <p className="p-6 text-xs text-[#829087]">No audit events match the current filters.</p> : null}</div>
+      {filtered.length ? <TablePager page={page} pages={pageCount} total={filtered.length} pageSize={pageSize} onPageChange={setPage} /> : null}
+    </>}
+  </section>;
 }
 
 function NotificationsPanel({ items, loading, onRead }: { items: Notice[]; loading: boolean; onRead: (id: string) => void }) {

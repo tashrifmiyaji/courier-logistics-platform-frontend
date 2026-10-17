@@ -26,6 +26,13 @@ src/
     payments/
       api.ts            bKash initiation and payment lookup requests
       hooks.ts          Payment initiation and lookup
+    support/
+      assistant.ts      Local help-guide topics and question matching (no external service)
+  components/
+    operations/
+      hub-details.tsx   Public, live-data hub detail profile
+    support/
+      support-assistant.tsx  Accessible, knowledge-guide support chat
 ```
 
 Follow the request from a screen to the server in this order:
@@ -36,3 +43,5 @@ Follow the request from a screen to the server in this order:
 4. The shared client sends the request through the same-origin Next.js proxy at `/api/backend`, includes the HTTP-only session cookies, refreshes an expired access token, and throws `ApiError` for unsuccessful or malformed responses.
 
 When adding a backend endpoint, add its typed request function to the matching feature's `api.ts`, then add a hook there if it needs React Query caching or mutation state. Keep page components focused on rendering, form state, and user feedback.
+
+The support assistant is deliberately a local help-guide matcher: it does not call a model, send chat messages to a third party, or require an API key. It provides bounded delivery answers and links to the real booking, tracking, and help pages; it is not a generative AI model.

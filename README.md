@@ -14,7 +14,7 @@ A role-aware Next.js App Router frontend for the B7A6 courier logistics API. Cus
 ## Run locally
 
 1. Start the B7A6 backend and its database. Its API should be reachable at `http://localhost:4000/api/v1`.
-2. Copy `.env.local.example` to `.env.local`. Set `BACKEND_API_URL` and `NEXT_PUBLIC_GOOGLE_CLIENT_ID`.
+2. Copy `.env.local.example` to `.env.local`. Set `BACKEND_API_URL` and `NEXT_PUBLIC_GOOGLE_CLIENT_ID`. Set the server-only `AI_GATEWAY_API_KEY` to a rotated Vercel AI Gateway key to enable the AI support assistant.
 3. Configure the backend `FRONTEND_URL` as `http://localhost:3000`.
 4. Configure backend bKash sandbox credentials and set `BKASH_CALLBACK_URL` to the public backend URL followed by `/api/v1/payments/bkash/callback`.
 5. Run:
@@ -51,7 +51,9 @@ Google sign-in is shown on the login tab when `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is 
 
 Backend request functions and React Query hooks are grouped by feature under `src/features` (`auth`, `shipments`, `users`, `operations`, `admin`, and `payments`). A screen calls a feature hook; the hook uses its feature API function; that API function uses the shared `src/lib/api-client.ts` transport. The transport owns the same-origin API proxy, cookie credentials, refresh retry, response checks, and API errors. See [the feature layout guide](./src/features/README.md) for a request-flow example.
 
-The public site includes service, about, tracking, help, and contact/support pages. The theme switch persists the user's light/dark preference. Shipment search supports status, booking date, hub, sorting, and paginated results from the records returned by the backend.
+The public site includes service, about, tracking, help, contact/support, a live hub directory (`/explore`), and public hub profiles (`/hubs/[id]`). The hub directory uses real backend data with city, zone, status, text search, sort, and pagination filters. The theme switch persists the user's light/dark preference. Shipment search supports status, booking date, hub, sorting, and paginated results from the records returned by the backend.
+
+The floating support assistant streams AI-generated answers grounded in the GOparcel help guide and links recognized topics to relevant app pages. It does not access private account or shipment data. The `AI_GATEWAY_API_KEY` is server-only and must never use a `NEXT_PUBLIC_` prefix. Without a configured key, or while the AI Gateway is unavailable, the assistant reports the error instead of presenting a fixed answer as AI. Customer dashboards also show a repeat-route suggestion based on the signed-in user's actual shipment history; it is a planning hint, not generated AI or a delivery-time guarantee.
 
 ### Customer
 
@@ -81,7 +83,7 @@ The frontend only initiates the backend's configured bKash provider. It redirect
 
 ## Production configuration
 
-On the frontend deployment, configure `BACKEND_API_URL`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `NEXT_PUBLIC_SUPPORT_EMAIL` (if a real support inbox is available), and the three demo account pairs. On the backend, configure `GOOGLE_CLIENT_ID` to the same Google OAuth client ID, `FRONTEND_URL` as the exact frontend origin, and `BKASH_CALLBACK_URL` as the public backend callback endpoint. Use bKash sandbox values for test evaluation and live credentials only for an appropriately configured production merchant account. Do not place API secrets in `NEXT_PUBLIC_*` variables; the Google client ID and support email are public, but backend secrets are not.
+On the frontend deployment, configure `BACKEND_API_URL`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `NEXT_PUBLIC_SUPPORT_EMAIL` (if a real support inbox is available), `AI_GATEWAY_API_KEY`, and the three demo account pairs. On the backend, configure `GOOGLE_CLIENT_ID` to the same Google OAuth client ID, `FRONTEND_URL` as the exact frontend origin, and `BKASH_CALLBACK_URL` as the public backend callback endpoint. Use bKash sandbox values for test evaluation and live credentials only for an appropriately configured production merchant account. Do not place API secrets in `NEXT_PUBLIC_*` variables; the Google client ID and support email are public, but backend secrets are not.
 
 ## Validation
 

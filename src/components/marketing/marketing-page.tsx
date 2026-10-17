@@ -4,6 +4,7 @@ import { ArrowRight, Box } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const publicLinks = [
+  { href: "/explore", label: "Explore hubs" },
   { href: "/services", label: "Services" },
   { href: "/about", label: "About" },
   { href: "/track", label: "Track parcel" },
@@ -57,13 +58,15 @@ export function MarketingFooter() {
             <Link href="/login" className="w-fit hover:text-[#176b4d]">Sign in or create an account</Link>
             <Link href="/dashboard" className="w-fit hover:text-[#176b4d]">Shipment dashboard</Link>
             <Link href="/help#support" className="w-fit hover:text-[#176b4d]">Get help</Link>
+            <Link href="/contact" className="w-fit hover:text-[#176b4d]">Contact support</Link>
           </div>
         </div>
         <div>
-          <p className="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#718078]">Project source</p>
+          <p className="text-[10px] font-extrabold uppercase tracking-[.14em] text-[#718078]">Contact & community</p>
           <div className="mt-3 grid gap-2 text-xs font-semibold text-[#52645a]">
-            <a href="https://github.com/tashrifmiyaji/courier-logistics-platform-frontend" target="_blank" rel="noreferrer" className="w-fit hover:text-[#176b4d]">Frontend repository</a>
-            <a href="https://github.com/tashrifmiyaji/courier-logistics-platform" target="_blank" rel="noreferrer" className="w-fit hover:text-[#176b4d]">Backend repository</a>
+            {process.env.NEXT_PUBLIC_SUPPORT_EMAIL ? <a href={`mailto:${process.env.NEXT_PUBLIC_SUPPORT_EMAIL}`} className="w-fit hover:text-[#176b4d]">Email support</a> : <p className="max-w-[220px] text-[10px] leading-4 text-[#829087]">Support email is not configured for this deployment.</p>}
+            <a href="https://github.com/tashrifmiyaji/courier-logistics-platform-frontend" target="_blank" rel="noreferrer" className="w-fit hover:text-[#176b4d]">Frontend on GitHub</a>
+            <a href="https://github.com/tashrifmiyaji/courier-logistics-platform" target="_blank" rel="noreferrer" className="w-fit hover:text-[#176b4d]">Backend on GitHub</a>
           </div>
         </div>
       </div>
