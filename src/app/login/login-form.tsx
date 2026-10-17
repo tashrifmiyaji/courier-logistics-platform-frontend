@@ -1,15 +1,15 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
 import { ArrowRight, Eye, EyeOff, LoaderCircle, ShieldCheck, Truck, UserRound, Wrench } from "lucide-react";
 import Script from "next/script";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { ApiError, apiRequest, type Role, type User } from "@/lib/api";
+import { ApiError, type Role, type User } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
+import { useGoogleLogin, useLogin, useRegistration } from "@/features/auth/hooks";
 
 const loginSchema = z.object({
   email: z.string().trim().email("Enter a valid email address."),
@@ -92,44 +92,9 @@ export function LoginForm() {
     router.replace(next?.startsWith("/dashboard") ? next : "/dashboard");
   };
 
-  const loginMutation = useMutation({
-    mutationFn: async (values: LoginValues) => {
-      const response = await apiRequest<{ user: User }>("/auth/login", {
-        method: "POST",
-        body: JSON.stringify(values),
-      });
-      return response.data.user;
-    },
-    onSuccess: finishLogin,
-    onError: (cause) => setError(cause instanceof Error ? cause.message : "Login failed."),
-  });
-  const registerMutation = useMutation({
-    mutationFn: async (values: RegisterValues) => {
-      const response = await apiRequest<User>("/auth/register", {
-        method: "POST",
-        body: JSON.stringify({ ...values, phone: values.phone || undefined }),
-      });
-      return response.data;
-    },
-    onSuccess: () => {
-      setRegister(false);
-      setNotice("Account created. Sign in to get started.");
-      loginForm.setValue("email", registerForm.getValues("email"));
-      registerForm.reset();
-    },
-    onError: (cause) => setError(cause instanceof Error ? cause.message : "Registration failed."),
-  });
-  const googleLoginMutation = useMutation({
-    mutationFn: async (idToken: string) => {
-      const response = await apiRequest<{ user: User }>("/auth/google", {
-        method: "POST",
-        body: JSON.stringify({ idToken }),
-      });
-      return response.data.user;
-    },
-    onSuccess: finishLogin,
-    onError: (cause) => setError(cause instanceof Error ? cause.message : "Google sign-in failed."),
-  });
+  const loginMutation = useLogin();
+  const registerMutation = useRegistration();
+  const googleLoginMutation = useGoogleLogin();
   const initializeGoogleButton = useCallback(() => {
     if (!googleClientId || !googleButtonRef.current || !window.google) return;
     googleButtonRef.current.replaceChildren();
@@ -141,7 +106,10 @@ export function LoginForm() {
           return;
         }
         setError("");
-        googleLoginMutation.mutate(response.credential);
+        googleLoginMutation.mutate(response.credential, {
+          onSuccess: finishLogin,
+          onError: (cause) => setError(cause instanceof Error ? cause.message : "Google sign-in failed."),
+        });
       },
       auto_select: false,
     });
@@ -196,7 +164,7 @@ export function LoginForm() {
       {error ? <p role="alert" className="mb-4 rounded-xl border border-[#f1d5d1] bg-[#fff5f3] px-3.5 py-3 text-xs font-semibold text-[#a54037]">{error}</p> : null}
 
       {register ? (
-        <form onSubmit={registerForm.handleSubmit((values) => { setError(""); registerMutation.mutate(values); })} className="space-y-4" noValidate>
+        <form onSubmit={registerForm.handleSubmit((values) => { setError(""); registerMutation.mutate(values, { onSuccess: () => { setRegister(false); setNotice("Account created. Sign in to get started."); loginForm.setValue("email", registerForm.getValues("email")); registerForm.reset(); }, onError: (cause) => setError(cause instanceof Error ? cause.message : "Registration failed.") }); })} className="space-y-4" noValidate>
           <label className="block text-xs font-bold text-[#526259]">Full name
             <input {...registerForm.register("name")} autoComplete="name" className="mt-2 h-11 w-full rounded-xl border border-[#dfe6de] bg-white px-3.5 text-sm font-medium outline-none transition placeholder:text-[#a2ada4] focus:border-[#70a888] focus:ring-4 focus:ring-[#176b4d]/[.08]" placeholder="How should we address you?" />
             <ErrorMessage>{registerForm.formState.errors.name?.message}</ErrorMessage>
@@ -219,7 +187,7 @@ export function LoginForm() {
           <button type="submit" disabled={submitting} className="mt-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#176b4d] text-sm font-extrabold text-white transition hover:bg-[#10563d] disabled:cursor-not-allowed disabled:opacity-60">{submitting ? <LoaderCircle className="animate-spin" size={17} /> : "Create customer account"}{!submitting ? <ArrowRight size={16} /> : null}</button>
         </form>
       ) : (
-        <form onSubmit={loginForm.handleSubmit((values) => { setError(""); setNotice(""); loginMutation.mutate(values); })} className="space-y-4" noValidate>
+        <form onSubmit={loginForm.handleSubmit((values) => { setError(""); setNotice(""); loginMutation.mutate(values, { onSuccess: finishLogin, onError: (cause) => setError(cause instanceof Error ? cause.message : "Login failed.") }); })} className="space-y-4" noValidate>
           <label className="block text-xs font-bold text-[#526259]">Email address
             <input {...loginForm.register("email")} type="email" autoComplete="email" className="mt-2 h-11 w-full rounded-xl border border-[#dfe6de] bg-white px-3.5 text-sm font-medium outline-none transition placeholder:text-[#a2ada4] focus:border-[#70a888] focus:ring-4 focus:ring-[#176b4d]/[.08]" placeholder="you@example.com" />
             <ErrorMessage>{loginForm.formState.errors.email?.message}</ErrorMessage>

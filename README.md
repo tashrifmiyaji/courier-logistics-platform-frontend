@@ -1,4 +1,4 @@
-# ParcelPilot — Courier & Logistics Platform
+# GOparcel — Courier & Logistics Platform
 
 A role-aware Next.js App Router frontend for the B7A6 courier logistics API. Customers book and track shipments, couriers manage assigned deliveries, and administrators operate the courier, hub, pricing, and shipment workflows.
 
@@ -47,6 +47,12 @@ Google sign-in is shown on the login tab when `NEXT_PUBLIC_GOOGLE_CLIENT_ID` is 
 
 ## Frontend workflows
 
+### Frontend structure
+
+Backend request functions and React Query hooks are grouped by feature under `src/features` (`auth`, `shipments`, `users`, `operations`, `admin`, and `payments`). A screen calls a feature hook; the hook uses its feature API function; that API function uses the shared `src/lib/api-client.ts` transport. The transport owns the same-origin API proxy, cookie credentials, refresh retry, response checks, and API errors. See [the feature layout guide](./src/features/README.md) for a request-flow example.
+
+The public site includes service, about, tracking, help, and contact/support pages. The theme switch persists the user's light/dark preference. Shipment search supports status, booking date, hub, sorting, and paginated results from the records returned by the backend.
+
 ### Customer
 
 - Register or log in; review shipment history and notifications.
@@ -75,7 +81,7 @@ The frontend only initiates the backend's configured bKash provider. It redirect
 
 ## Production configuration
 
-On the frontend deployment, configure `BACKEND_API_URL`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, and the three demo account pairs. On the backend, configure `GOOGLE_CLIENT_ID` to the same Google OAuth client ID, `FRONTEND_URL` as the exact frontend origin, and `BKASH_CALLBACK_URL` as the public backend callback endpoint. Use bKash sandbox values for test evaluation and live credentials only for an appropriately configured production merchant account. Do not place API secrets in `NEXT_PUBLIC_*` variables; the Google client ID is public, but backend secrets are not.
+On the frontend deployment, configure `BACKEND_API_URL`, `NEXT_PUBLIC_GOOGLE_CLIENT_ID`, `NEXT_PUBLIC_SUPPORT_EMAIL` (if a real support inbox is available), and the three demo account pairs. On the backend, configure `GOOGLE_CLIENT_ID` to the same Google OAuth client ID, `FRONTEND_URL` as the exact frontend origin, and `BKASH_CALLBACK_URL` as the public backend callback endpoint. Use bKash sandbox values for test evaluation and live credentials only for an appropriately configured production merchant account. Do not place API secrets in `NEXT_PUBLIC_*` variables; the Google client ID and support email are public, but backend secrets are not.
 
 ## Validation
 

@@ -5,15 +5,21 @@ import {
   ArrowUpRight,
   BadgeCheck,
   Box,
+  BriefcaseBusiness,
   Check,
   ChevronRight,
+  CircleHelp,
   Clock3,
+  CreditCard,
+  Map,
   MapPin,
   PackageCheck,
+  Search,
   ShieldCheck,
   Sparkles,
   Truck,
 } from "lucide-react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const serviceSteps = [
   ["01", "Tell us where it’s going", "Choose your pickup and delivery hubs. Your price is clear before you book."],
@@ -25,32 +31,45 @@ export default function Home() {
   return (
     <main className="overflow-hidden">
       <header className="relative z-10 mx-auto flex max-w-[1320px] items-center justify-between px-5 py-5 sm:px-8 lg:px-12">
-        <Link href="/" className="flex items-center gap-2.5" aria-label="ParcelPilot home">
+        <Link href="/" className="flex items-center gap-2.5" aria-label="GOparcel home">
           <span className="grid size-10 place-items-center rounded-2xl bg-[#176b4d] text-white">
             <Box size={21} strokeWidth={2.5} />
           </span>
-          <span className="text-[19px] font-extrabold tracking-[-0.06em]">parcel<span className="text-[#176b4d]">pilot</span></span>
+          <span className="text-[19px] font-extrabold tracking-[-0.06em]">GO<span className="text-[#176b4d]">parcel</span></span>
         </Link>
-        <nav className="hidden items-center gap-8 text-[13px] font-semibold text-[#5f6f66] md:flex" aria-label="Main navigation">
+        <nav className="hidden items-center gap-6 text-[12px] font-semibold text-[#5f6f66] lg:flex" aria-label="Main navigation">
+          <Link href="/services" className="transition hover:text-[#176b4d]">Services</Link>
           <a href="#how-it-works" className="transition hover:text-[#176b4d]">How it works</a>
-          <a href="#our-promise" className="transition hover:text-[#176b4d]">Why ParcelPilot</a>
+          <Link href="/about" className="transition hover:text-[#176b4d]">About</Link>
           <Link href="/track" className="transition hover:text-[#176b4d]">Track parcel</Link>
+          <Link href="/help" className="transition hover:text-[#176b4d]">Help</Link>
         </nav>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
           <Link href="/login" className="hidden rounded-xl px-4 py-2.5 text-sm font-bold text-[#27372f] transition hover:bg-white sm:block">Log in</Link>
           <Link href="/login" className="inline-flex items-center gap-2 rounded-xl bg-[#176b4d] px-4 py-2.5 text-sm font-bold text-white shadow-[0_8px_20px_-10px_#176b4d] transition hover:-translate-y-0.5 hover:bg-[#10563d]">
             Send a parcel <ArrowUpRight size={16} />
           </Link>
+          <details className="relative lg:hidden">
+            <summary className="grid size-10 cursor-pointer list-none place-items-center rounded-xl border border-[#dfe6de] bg-white text-xs font-bold text-[#46594c]">Menu</summary>
+            <nav className="absolute right-0 top-12 z-30 grid min-w-44 gap-1 rounded-2xl border border-[#e2e9e1] bg-white p-2 shadow-xl" aria-label="Mobile navigation">
+              <Link href="/services" className="rounded-xl px-3 py-2.5 text-xs font-bold text-[#52645a] hover:bg-[#f2f6f1]">Services</Link>
+              <a href="#how-it-works" className="rounded-xl px-3 py-2.5 text-xs font-bold text-[#52645a] hover:bg-[#f2f6f1]">How it works</a>
+              <Link href="/about" className="rounded-xl px-3 py-2.5 text-xs font-bold text-[#52645a] hover:bg-[#f2f6f1]">About GOparcel</Link>
+              <Link href="/track" className="rounded-xl px-3 py-2.5 text-xs font-bold text-[#52645a] hover:bg-[#f2f6f1]">Track parcel</Link>
+              <Link href="/help" className="rounded-xl px-3 py-2.5 text-xs font-bold text-[#52645a] hover:bg-[#f2f6f1]">Help center</Link>
+            </nav>
+          </details>
         </div>
       </header>
 
-      <section className="relative mx-auto grid max-w-[1320px] items-center gap-12 px-5 pb-20 pt-12 sm:px-8 md:pb-28 md:pt-20 lg:grid-cols-[1.05fr_.95fr] lg:px-12 lg:pt-24">
+      <section className="relative mx-auto grid min-h-[60svh] max-w-[1320px] items-center gap-8 px-5 py-5 sm:px-8 lg:grid-cols-[1.05fr_.95fr] lg:gap-12 lg:px-12 lg:py-8">
         <div className="pointer-events-none absolute -left-44 top-16 -z-10 size-[480px] rounded-full bg-[#e1f2e9] blur-[90px]" />
         <div className="max-w-[620px]">
           <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#cde2d5] bg-white/70 px-3.5 py-2 text-[11px] font-extrabold uppercase tracking-[.14em] text-[#176b4d]">
             <Sparkles size={14} /> Bangladesh, delivered better
           </div>
-          <h1 className="text-[clamp(3.4rem,8vw,6.8rem)] font-semibold leading-[.95] tracking-[-.085em] text-[#17251f]">
+          <h1 className="text-[clamp(2.8rem,6vw,5rem)] font-semibold leading-[.95] tracking-[-.085em] text-[#17251f]">
             Good things
             <br />
             are <span className="font-serif font-normal italic text-[#176b4d]">going places.</span>
@@ -76,7 +95,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="relative mx-auto w-full max-w-[600px] lg:ml-auto">
+        <div className="relative mx-auto hidden w-full max-w-[510px] lg:ml-auto lg:block">
           <div className="surface-grid relative aspect-[1.04/1] overflow-hidden rounded-[32px] border border-white bg-[#e8f0e8] p-4 shadow-[0_38px_90px_-55px_#24523b] sm:rounded-[42px] sm:p-7">
             <div className="absolute inset-x-0 bottom-0 h-[41%] bg-[#dce9df]" />
             <div className="absolute -left-16 bottom-[30%] h-14 w-[125%] rotate-[-13deg] rounded-full border border-white/70 bg-white/35" />
@@ -156,6 +175,33 @@ export default function Home() {
         </div>
       </section>
 
+      <section id="services" className="border-y border-[#e8ece5] bg-white/70">
+        <div className="mx-auto max-w-[1320px] px-5 py-16 sm:px-8 md:py-20 lg:px-12">
+          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+            <div><p className="text-[10px] font-extrabold uppercase tracking-[.17em] text-[#548568]">One delivery desk</p><h2 className="mt-3 max-w-xl text-3xl font-semibold tracking-[-.06em] sm:text-4xl">Everything you need for a clear handoff.</h2></div>
+            <Link href="/services" className="inline-flex w-fit items-center gap-1 text-xs font-extrabold text-[#28734d]">Explore all services <ChevronRight size={15} /></Link>
+          </div>
+          <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {[
+              { icon: <PackageCheck size={20} />, title: "Book a shipment", description: "Add parcel and contact details, choose active hubs, then confirm after a route quote.", meta: "Route-based pricing" },
+              { icon: <MapPin size={20} />, title: "Track every step", description: "Look up the latest recorded shipment status and event timeline with a tracking code.", meta: "Public tracking" },
+              { icon: <CreditCard size={20} />, title: "Pay with confidence", description: "Eligible bookings can use configured bKash checkout, verified by the backend.", meta: "Verified payment" },
+              { icon: <ShieldCheck size={20} />, title: "Manage by role", description: "Customer, courier, and admin workspaces keep operational actions in the right place.", meta: "Role-aware access" },
+            ].map((service) => (
+              <article key={service.title} className="flex min-h-[250px] flex-col rounded-[22px] border border-[#e4eae3] bg-white p-5 transition hover:-translate-y-0.5 hover:shadow-lg sm:p-6">
+                <span className="grid size-11 place-items-center rounded-2xl bg-[#e8f3eb] text-[#176b4d]">{service.icon}</span>
+                <h3 className="mt-5 text-base font-extrabold tracking-[-.03em]">{service.title}</h3>
+                <p className="mt-2 flex-1 text-xs leading-5 text-[#78867d]">{service.description}</p>
+                <div className="mt-4 flex items-center justify-between border-t border-[#edf0eb] pt-3">
+                  <span className="text-[9px] font-bold uppercase tracking-wide text-[#859188]">{service.meta}</span>
+                  <Link href="/services" className="text-[10px] font-extrabold text-[#28734d]">View details</Link>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section id="our-promise" className="mx-auto max-w-[1320px] px-5 pb-20 sm:px-8 md:pb-28 lg:px-12">
         <div className="relative overflow-hidden rounded-[32px] bg-[#173c2e] px-6 py-10 text-white sm:rounded-[38px] sm:px-12 sm:py-14 lg:px-16">
           <div className="absolute -right-20 -top-44 size-[450px] rounded-full border border-white/10" />
@@ -176,11 +222,72 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="mx-auto grid max-w-[1320px] gap-8 px-5 py-16 sm:px-8 md:grid-cols-2 md:items-center md:py-20 lg:px-12">
+        <div>
+          <p className="text-[10px] font-extrabold uppercase tracking-[.17em] text-[#548568]">The route is yours to choose</p>
+          <h2 className="mt-3 text-3xl font-semibold leading-tight tracking-[-.06em] sm:text-4xl">Route options come from the live hub network.</h2>
+          <p className="mt-4 max-w-xl text-sm leading-6 text-[#718078]">Only hubs currently active in the platform can be selected for a booking. Administrators manage hubs, zones, and route pricing from the operations workspace.</p>
+          <Link href="/services" className="mt-5 inline-flex items-center gap-2 text-xs font-extrabold text-[#28734d]">How route pricing works <ArrowRight size={14} /></Link>
+        </div>
+        <div className="rounded-[26px] border border-[#e2e9e1] bg-white p-6 sm:p-8">
+          <span className="grid size-11 place-items-center rounded-2xl bg-[#f5eddf] text-[#926c3d]"><Map size={20} /></span>
+          <h3 className="mt-5 text-lg font-extrabold">A quote before you confirm.</h3>
+          <p className="mt-2 text-xs leading-5 text-[#7b887f]">Enter the route and parcel weight to see the backend-calculated delivery charge before the shipment is created.</p>
+          <Link href="/login" className="mt-5 inline-flex h-10 items-center gap-2 rounded-xl bg-[#176b4d] px-4 text-xs font-extrabold text-white">Start a booking <ArrowRight size={14} /></Link>
+        </div>
+      </section>
+
+      <section className="border-y border-[#e8ece5] bg-[#f0f5ef]/70">
+        <div className="mx-auto grid max-w-[1320px] gap-8 px-5 py-16 sm:px-8 md:grid-cols-[.9fr_1.1fr] md:items-center md:py-20 lg:px-12">
+          <div className="surface-grid grid min-h-[230px] place-items-center rounded-[26px] border border-[#e0e8df] bg-white p-6">
+            <div className="w-full max-w-sm rounded-2xl border border-[#e6ebe4] bg-white p-5 shadow-[0_20px_50px_-35px_#345840]">
+              <div className="flex items-center justify-between"><span className="grid size-10 place-items-center rounded-xl bg-[#e6f2e9] text-[#176b4d]"><BriefcaseBusiness size={18} /></span><span className="rounded-full bg-[#edf5ee] px-2.5 py-1 text-[9px] font-extrabold text-[#3f7952]">SHIPMENT HISTORY</span></div>
+              <p className="mt-5 text-sm font-extrabold">Every booking, easier to follow.</p>
+              <p className="mt-1 text-[10px] text-[#839087]">Review status, route, and payment from your account.</p>
+              <div className="mt-4 flex items-center gap-2"><span className="h-1.5 flex-1 rounded-full bg-[#dcebe0]" /><span className="size-2 rounded-full bg-[#176b4d]" /><span className="h-1.5 w-12 rounded-full bg-[#edf0eb]" /></div>
+            </div>
+          </div>
+          <div><p className="text-[10px] font-extrabold uppercase tracking-[.17em] text-[#548568]">For people and small teams</p><h2 className="mt-3 text-3xl font-semibold tracking-[-.06em] sm:text-4xl">Keep delivery work together, not scattered.</h2><p className="mt-4 max-w-xl text-sm leading-6 text-[#718078]">Book parcels from one customer account, return to shipment details when you need them, and use the tracking timeline as your shared point of reference.</p><Link href="/login" className="mt-5 inline-flex items-center gap-2 text-xs font-extrabold text-[#28734d]">Open your delivery desk <ArrowRight size={14} /></Link></div>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-[1320px] px-5 py-16 sm:px-8 md:py-20 lg:px-12">
+        <div className="grid gap-8 rounded-[30px] bg-[#173c2e] p-6 text-white sm:p-10 md:grid-cols-[1fr_auto] md:items-center">
+          <div><span className="inline-flex size-10 items-center justify-center rounded-xl bg-white/10 text-[#c5e6d0]"><Search size={19} /></span><h2 className="mt-4 text-3xl font-semibold tracking-[-.06em]">Got a tracking code?</h2><p className="mt-2 max-w-lg text-sm leading-6 text-[#c5d4cb]">Check a parcel's latest recorded event without signing in. Your shipment code is all you need.</p></div>
+          <Link href="/track" className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#d8efe1] px-5 text-sm font-extrabold text-[#173c2e]">Track a parcel <ArrowRight size={16} /></Link>
+        </div>
+      </section>
+
+      <section className="border-y border-[#e8ece5] bg-white/70">
+        <div className="mx-auto max-w-[960px] px-5 py-16 sm:px-8 md:py-20">
+          <p className="text-center text-[10px] font-extrabold uppercase tracking-[.17em] text-[#548568]">Good to know</p>
+          <h2 className="mt-3 text-center text-3xl font-semibold tracking-[-.06em]">A few quick answers.</h2>
+          <div className="mt-8 grid gap-3">
+            {[
+              ["How is my delivery charge calculated?", "The booking form requests a quote from the configured route pricing and the weight you enter. Review the amount before confirming."],
+              ["Can someone track without an account?", "Yes. Anyone with the shipment's tracking code can use the public tracking page to view its recorded progress."],
+              ["When does bKash show as paid?", "Only after the backend verifies the payment and records its status as paid. A successful redirect on its own is not treated as confirmation."],
+              ["Where can I get help?", "Visit the help center for booking, tracking, cancellation, and payment guidance."],
+            ].map(([question, answer]) => <details key={question} className="group rounded-2xl border border-[#e4eae3] bg-white p-4 sm:p-5"><summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-left text-xs font-extrabold sm:text-sm">{question}<CircleHelp size={16} className="shrink-0 text-[#548568]" /></summary><p className="mt-3 max-w-3xl text-xs leading-5 text-[#718078]">{answer}</p></details>)}
+          </div>
+          <p className="mt-5 text-center"><Link href="/help" className="inline-flex items-center gap-1 text-xs font-extrabold text-[#28734d]">Visit the help center <ArrowRight size={13} /></Link></p>
+        </div>
+      </section>
+
+      <section className="mx-auto max-w-[1320px] px-5 py-14 sm:px-8 md:py-16 lg:px-12">
+        <div className="flex flex-col justify-between gap-5 rounded-[28px] border border-[#dce8de] bg-[#eaf4ec] p-6 sm:flex-row sm:items-center sm:p-9">
+          <div><p className="text-[10px] font-extrabold uppercase tracking-[.15em] text-[#548568]">Your next step</p><h2 className="mt-2 text-2xl font-semibold tracking-[-.05em]">Ready to send something on its way?</h2><p className="mt-2 text-xs leading-5 text-[#65776b]">Create an account to book and manage your shipments.</p></div>
+          <Link href="/login" className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#176b4d] px-5 text-xs font-extrabold text-white">Get started <ArrowRight size={15} /></Link>
+        </div>
+      </section>
+
       <footer className="border-t border-[#e6ebe4] bg-white/65">
-        <div className="mx-auto flex max-w-[1320px] flex-col gap-4 px-5 py-6 text-xs text-[#7e8b82] sm:flex-row sm:items-center sm:justify-between sm:px-8 lg:px-12">
-          <Link href="/" className="flex items-center gap-2 font-extrabold tracking-[-.04em] text-[#26372e]"><span className="grid size-7 place-items-center rounded-lg bg-[#176b4d] text-white"><Box size={14} /></span> parcelpilot</Link>
-          <p>Moving the things that move you.</p>
-          <p>© {new Date().getFullYear()} ParcelPilot Logistics</p>
+        <div className="mx-auto grid max-w-[1320px] gap-6 px-5 py-8 text-xs text-[#7e8b82] sm:grid-cols-2 sm:px-8 lg:grid-cols-[1.5fr_1fr_1fr_1fr] lg:px-12">
+          <div><Link href="/" className="flex items-center gap-2 font-extrabold tracking-[-.04em] text-[#26372e]"><span className="grid size-7 place-items-center rounded-lg bg-[#176b4d] text-white"><Box size={14} /></span>GOparcel</Link><p className="mt-2">Moving the things that move you.</p></div>
+          <div className="grid content-start gap-2 font-semibold"><Link href="/services">Services</Link><Link href="/about">About GOparcel</Link></div>
+          <div className="grid content-start gap-2 font-semibold"><Link href="/track">Track parcel</Link><Link href="/help">Help center</Link><Link href="/contact">Contact & support</Link></div>
+          <div className="grid content-start gap-2 font-semibold"><span className="text-[10px] font-extrabold uppercase tracking-[.14em]">Project source</span><a href="https://github.com/tashrifmiyaji/courier-logistics-platform-frontend" target="_blank" rel="noreferrer" className="w-fit hover:text-[#176b4d]">Frontend repository</a><a href="https://github.com/tashrifmiyaji/courier-logistics-platform" target="_blank" rel="noreferrer" className="w-fit hover:text-[#176b4d]">Backend repository</a></div>
+          <p className="sm:col-span-2 lg:col-span-4">© {new Date().getFullYear()} GOparcel Logistics</p>
         </div>
       </footer>
     </main>

@@ -4,11 +4,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Box, Check, CircleDashed, MapPin, Package, Scale } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { apiRequest, money } from "@/lib/api";
+import { money } from "@/lib/api";
+import { createShipment as createShipmentRequest } from "@/features/shipments/api";
+import { calculateRoutePrice, getHubs } from "@/features/operations/api";
 
 const shipmentSchema = z.object({
   senderName: z.string().trim().min(2, "Enter the sender’s name.").max(100),
@@ -40,39 +42,43 @@ const fieldClass = "mt-1.5 h-11 w-full rounded-xl border border-[#dfe6de] bg-whi
 
 export function NewShipmentForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quotedFor, setQuotedFor] = useState("");
   const [error, setError] = useState("");
   const hubsQuery = useQuery({
     queryKey: ["active-hubs"],
-    queryFn: async () => (await apiRequest<Hub[]>("/operations/hubs?active=true")).data,
+    queryFn: () => getHubs(true),
   });
   const form = useForm<ShipmentInput, unknown, ShipmentValues>({
     resolver: zodResolver(shipmentSchema),
-    defaultValues: { weightKg: 1, codAmount: "", scheduledPickupAt: "" },
+    defaultValues: {
+      weightKg: 1,
+      codAmount: "",
+      scheduledPickupAt: "",
+      pickupHubId: searchParams.get("pickupHubId") || "",
+      deliveryHubId: searchParams.get("deliveryHubId") || "",
+    },
   });
   const createShipment = useMutation({
     mutationFn: async (values: ShipmentValues) => {
-      const response = await apiRequest<{ id: string; trackingCode: string }>("/shipments", {
-        method: "POST",
-        body: JSON.stringify({
-          ...values,
-          codAmount: values.codAmount === "" ? undefined : Number(values.codAmount),
-          scheduledPickupAt: values.scheduledPickupAt
-            ? new Date(values.scheduledPickupAt).toISOString()
-            : undefined,
-        }),
+      return createShipmentRequest({
+        ...values,
+        codAmount: values.codAmount === "" ? undefined : Number(values.codAmount),
+        scheduledPickupAt: values.scheduledPickupAt
+          ? new Date(values.scheduledPickupAt).toISOString()
+          : undefined,
       });
-      return response.data;
     },
     onSuccess: (shipment) => router.replace(`/dashboard/shipments/${shipment.id}?created=${shipment.trackingCode}`),
     onError: (cause) => setError(cause instanceof Error ? cause.message : "Your shipment could not be created."),
   });
   const calculatePrice = useMutation({
-    mutationFn: async (values: ShipmentValues) => (await apiRequest<Quote>("/operations/pricing/calculate", {
-      method: "POST",
-      body: JSON.stringify({ fromHubId: values.pickupHubId, toHubId: values.deliveryHubId, weightKg: values.weightKg }),
-    })).data,
+    mutationFn: (values: ShipmentValues) => calculateRoutePrice({
+      fromHubId: values.pickupHubId,
+      toHubId: values.deliveryHubId,
+      weightKg: values.weightKg,
+    }),
     onMutate: () => {
       setQuote(null);
       setQuotedFor("");

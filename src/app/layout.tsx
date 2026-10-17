@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "ParcelPilot — Delivery, without the detour",
-    template: "%s | ParcelPilot",
+    default: "GOparcel — Delivery, without the detour",
+    template: "%s | GOparcel",
   },
   description:
     "Book a pickup, follow every handoff, and get your parcels there with confidence.",

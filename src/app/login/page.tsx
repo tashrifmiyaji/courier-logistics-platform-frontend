@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, Box } from "lucide-react";
 import { LoginForm } from "./login-form";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export const metadata: Metadata = { title: "Log in" };
 
@@ -16,7 +17,7 @@ export default function LoginPage() {
           <div className="absolute -right-2 top-8 size-[260px] rounded-full border border-white/10" />
           <Link href="/" className="relative flex w-fit items-center gap-2.5 text-lg font-extrabold tracking-[-.06em]">
             <span className="grid size-10 place-items-center rounded-2xl bg-white/15"><Box size={20} /></span>
-            parcelpilot
+            GOparcel
           </Link>
           <div className="relative">
             <p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#a7d4b7]">A better way to get there</p>
@@ -39,7 +40,8 @@ export default function LoginPage() {
           </div>
         </section>
         <section className="px-5 py-8 sm:px-9 sm:py-10 lg:px-12">
-          <Link href="/" className="mb-8 inline-flex items-center gap-1.5 text-xs font-bold text-[#78857d] transition hover:text-[#176b4d] sm:hidden"><ArrowLeft size={15} /> Back to ParcelPilot</Link>
+          <div className="mb-5 flex justify-end"><ThemeToggle /></div>
+          <Link href="/" className="mb-8 inline-flex items-center gap-1.5 text-xs font-bold text-[#78857d] transition hover:text-[#176b4d] sm:hidden"><ArrowLeft size={15} /> Back to GOparcel</Link>
           <div className="mb-7">
             <p className="text-[10px] font-extrabold uppercase tracking-[.17em] text-[#548568]">Your delivery desk</p>
             <h2 className="mt-2 text-3xl font-semibold tracking-[-.06em]">Welcome back.</h2>

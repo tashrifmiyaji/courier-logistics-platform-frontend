@@ -4,8 +4,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { CircleCheck, CircleHelp, CircleX, LoaderCircle, ArrowRight } from "lucide-react";
 import { Suspense } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { apiRequest, type Shipment } from "@/lib/api";
+import { usePayment } from "@/features/payments/hooks";
 
 function PaymentResultContent() {
   const params = useSearchParams();
@@ -13,12 +12,7 @@ function PaymentResultContent() {
   const paymentId = params.get("paymentId");
   const confirmed = status === "success";
   const cancelled = status === "cancelled";
-  const paymentQuery = useQuery({
-    queryKey: ["payment-result", paymentId],
-    queryFn: async () => (await apiRequest<{ id: string; status: string; shipment: Shipment }>(`/payments/${paymentId}`)).data,
-    enabled: Boolean(paymentId),
-    retry: 2,
-  });
+  const paymentQuery = usePayment(paymentId || "");
   const settled = paymentQuery.data?.status === "PAID";
   const Icon = confirmed ? CircleCheck : cancelled ? CircleX : CircleHelp;
   return <main className="grid min-h-screen place-items-center px-4 py-12">

@@ -1,32 +1,20 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Box, Check, CircleDashed, Clipboard, MapPin, PackageCheck, Search, Truck } from "lucide-react";
 import Link from "next/link";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { apiRequest, formatStatus, type ShipmentStatus } from "@/lib/api";
+import { formatStatus, type ShipmentStatus } from "@/lib/api";
+import { useTrackShipment } from "@/features/shipments/hooks";
+import type { TrackingData } from "@/features/shipments/api";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 const trackingSchema = z.object({
   trackingCode: z.string().trim().min(4, "Enter the tracking code from your confirmation.").transform((code) => code.toUpperCase()),
 });
-type TrackingData = {
-  trackingCode: string;
-  status: ShipmentStatus;
-  senderName: string;
-  receiverName: string;
-  createdAt: string;
-  deliveredAt?: string | null;
-  trackingEvents: {
-    status: ShipmentStatus;
-    note?: string | null;
-    location?: string | null;
-    createdAt: string;
-  }[];
-};
 type TrackingValues = z.infer<typeof trackingSchema>;
 const steps: ShipmentStatus[] = ["PENDING", "PICKUP_SCHEDULED", "PICKED_UP", "AT_ORIGIN_HUB", "IN_TRANSIT", "AT_DESTINATION_HUB", "OUT_FOR_DELIVERY", "DELIVERED"];
 
@@ -38,18 +26,15 @@ function TrackingView() {
   const [copyMessage, setCopyMessage] = useState("");
   const form = useForm<TrackingValues>({ resolver: zodResolver(trackingSchema), defaultValues: { trackingCode: initialCode } });
   const { reset, handleSubmit } = form;
-  const mutation = useMutation({
-    mutationFn: async (values: TrackingValues) => {
-      const response = await apiRequest<TrackingData>(`/shipments/track/${encodeURIComponent(values.trackingCode)}`);
-      return response.data;
-    },
+  const mutation = useTrackShipment();
+  const track = (code: string) => mutation.mutate(code, {
     onSuccess: (data) => { setResult(data); setNotFound(""); },
     onError: (error) => { setResult(null); setNotFound(error instanceof Error ? error.message : "Tracking lookup failed."); },
   });
   useEffect(() => {
     if (initialCode) {
       reset({ trackingCode: initialCode });
-      void handleSubmit((values) => mutation.mutate(values))();
+      void handleSubmit((values) => track(values.trackingCode))();
     }
   }, [handleSubmit, initialCode, mutation.mutate, reset]);
   const currentStep = result ? steps.indexOf(result.status) : -1;
@@ -58,15 +43,15 @@ function TrackingView() {
     <main className="min-h-screen px-4 py-7 sm:px-8">
       <div className="mx-auto max-w-[980px]">
         <header className="flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 text-[17px] font-extrabold tracking-[-.06em]"><span className="grid size-9 place-items-center rounded-xl bg-[#176b4d] text-white"><Box size={18} /></span> parcel<span className="-ml-2 text-[#176b4d]">pilot</span></Link>
-          <Link href="/login" className="rounded-xl border border-[#dfe6de] bg-white px-4 py-2.5 text-xs font-extrabold text-[#3b4b41] transition hover:border-[#aac8b3]">My account <ArrowRight size={14} className="ml-1 inline" /></Link>
+          <Link href="/" className="flex items-center gap-2.5 text-[17px] font-extrabold tracking-[-.06em]"><span className="grid size-9 place-items-center rounded-xl bg-[#176b4d] text-white"><Box size={18} /></span>GO<span className="-ml-2 text-[#176b4d]">parcel</span></Link>
+          <div className="flex items-center gap-2"><ThemeToggle /><Link href="/login" className="rounded-xl border border-[#dfe6de] bg-white px-4 py-2.5 text-xs font-extrabold text-[#3b4b41] transition hover:border-[#aac8b3]">My account <ArrowRight size={14} className="ml-1 inline" /></Link></div>
         </header>
         <div className="mx-auto mt-16 max-w-[660px] text-center sm:mt-20">
           <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-[#e2f1e7] text-[#176b4d]"><MapPin size={22} /></span>
           <p className="mt-5 text-[10px] font-extrabold uppercase tracking-[.18em] text-[#56876a]">A little parcel update</p>
           <h1 className="mt-2 text-4xl font-semibold tracking-[-.065em] sm:text-5xl">Where’s it now?</h1>
           <p className="mx-auto mt-3 max-w-[430px] text-sm leading-6 text-[#77857b]">Enter the tracking code from your booking confirmation and see its journey so far.</p>
-          <form onSubmit={form.handleSubmit((values) => mutation.mutate(values))} className="mt-8 flex flex-col gap-2 rounded-2xl border border-[#e1e8df] bg-white p-2 shadow-[0_18px_55px_-35px_#345840] sm:flex-row">
+          <form onSubmit={form.handleSubmit((values) => track(values.trackingCode))} className="mt-8 flex flex-col gap-2 rounded-2xl border border-[#e1e8df] bg-white p-2 shadow-[0_18px_55px_-35px_#345840] sm:flex-row">
             <label className="flex min-h-12 flex-1 items-center gap-3 px-3 text-[#87938b]"><Search size={18} /><span className="sr-only">Tracking code</span><input {...form.register("trackingCode")} placeholder="e.g. CLP-M4ABCD-12345" className="min-w-0 flex-1 bg-transparent text-sm font-semibold uppercase tracking-wide text-[#25382d] outline-none placeholder:normal-case placeholder:tracking-normal placeholder:text-[#a6b0a8]" /></label>
             <button type="submit" disabled={mutation.isPending} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#176b4d] px-5 text-sm font-extrabold text-white transition hover:bg-[#10563d] disabled:opacity-60">{mutation.isPending ? <CircleDashed size={16} className="animate-spin" /> : "Track parcel"}{!mutation.isPending ? <ArrowRight size={16} /> : null}</button>
           </form>
@@ -110,7 +95,7 @@ function TrackingView() {
           </section>
         ) : null}
 
-        <Link href="/" className="mx-auto mt-8 flex w-fit items-center gap-1.5 text-xs font-bold text-[#819087] transition hover:text-[#176b4d]"><ArrowLeft size={14} /> Back to ParcelPilot</Link>
+        <Link href="/" className="mx-auto mt-8 flex w-fit items-center gap-1.5 text-xs font-bold text-[#819087] transition hover:text-[#176b4d]"><ArrowLeft size={14} /> Back to GOparcel</Link>
       </div>
     </main>
   );

@@ -6,8 +6,11 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
-import { apiRequest, formatStatus, money, type Role, type Shipment, type ShipmentStatus } from "@/lib/api";
+import { formatStatus, money, type Role, type Shipment, type ShipmentStatus } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
+import { cancelShipment, getShipment, updateShipmentStatus } from "@/features/shipments/api";
+import { getCurrentUser } from "@/features/users/api";
+import { startPayment } from "@/features/payments/api";
 
 const journey: ShipmentStatus[] = [
   "PENDING",
@@ -38,11 +41,11 @@ export function ShipmentDetails({ shipmentId }: { shipmentId: string }) {
   const [error, setError] = useState("");
   const shipmentQuery = useQuery({
     queryKey: ["shipment", shipmentId],
-    queryFn: async () => (await apiRequest<Shipment>(`/shipments/${shipmentId}`)).data,
+    queryFn: () => getShipment(shipmentId),
   });
   const profileQuery = useQuery({
     queryKey: ["profile"],
-    queryFn: async () => (await apiRequest<typeof user extends null ? never : NonNullable<typeof user>>("/users/me")).data,
+    queryFn: getCurrentUser,
   });
   useEffect(() => {
     if (profileQuery.data) setUser(profileQuery.data);
@@ -52,17 +55,17 @@ export function ShipmentDetails({ shipmentId }: { shipmentId: string }) {
   const currentPayment = shipment?.payments?.find((item) => item.status === "PAID") || shipment?.payments?.[0];
   const canPay = role === "CUSTOMER" && !shipment?.payments?.some((item) => item.status === "PAID") && !["CANCELLED", "DELIVERED"].includes(shipment?.status || "");
   const cancel = useMutation({
-    mutationFn: () => apiRequest(`/shipments/${shipmentId}/cancel`, { method: "PATCH" }),
+    mutationFn: () => cancelShipment(shipmentId),
     onSuccess: refresh,
     onError: (cause) => setError(cause instanceof Error ? cause.message : "Shipment could not be cancelled."),
   });
   const updateStatus = useMutation({
-    mutationFn: (status: ShipmentStatus) => apiRequest(`/shipments/${shipmentId}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
+    mutationFn: (status: ShipmentStatus) => updateShipmentStatus(shipmentId, status),
     onSuccess: refresh,
     onError: (cause) => setError(cause instanceof Error ? cause.message : "Shipment status could not be updated."),
   });
   const pay = useMutation({
-    mutationFn: async () => (await apiRequest<{ paymentId: string; paymentURL: string }>("/payments/initiate", { method: "POST", body: JSON.stringify({ shipmentId, provider: "BKASH" }) })).data,
+    mutationFn: () => startPayment(shipmentId),
     onSuccess: (data) => window.location.assign(data.paymentURL),
     onError: (cause) => setError(cause instanceof Error ? cause.message : "bKash checkout could not be started."),
   });

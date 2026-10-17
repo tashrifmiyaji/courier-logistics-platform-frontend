@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   ArrowRight,
@@ -19,6 +19,7 @@ import {
   Search,
   Settings2,
   Shield,
+  Sparkles,
   Truck,
   Users,
   Wallet,
@@ -32,9 +33,9 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { Tooltip } from "@/components/ui/tooltip";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import {
   ApiError,
-  apiRequest,
   formatStatus,
   money,
   type Role,
@@ -43,19 +44,30 @@ import {
   type User,
 } from "@/lib/api";
 import { useAuthStore } from "@/lib/auth-store";
-
-type DashboardStats = {
-  users: number;
-  shipments: number;
-  delivered: number;
-  pendingPayments: number;
-  paidRevenue: number;
-};
-type AdminUser = User & { courierProfile?: { id: string; availability: string; vehicleType: string } | null };
-type Notice = { id: string; title: string; message: string; type: string; isRead: boolean; createdAt: string };
-type Hub = { id: string; name: string; code: string; city: string; address: string; zoneId?: string | null; isActive: boolean; zone?: { name: string } | null };
-type Zone = { id: string; name: string };
-type AuditEntry = { id: string; action: string; entityType: string; entityId: string; createdAt: string; user?: { name: string; email: string } | null };
+import { useCurrentUser, useNotifications } from "@/features/users/hooks";
+import { useShipments } from "@/features/shipments/hooks";
+import { useAdminDashboard, useAdminPeople, useAuditTrail } from "@/features/admin/hooks";
+import { useHubs, useZones } from "@/features/operations/hooks";
+import { logout } from "@/features/auth/api";
+import { assignCourier, cancelShipment, updateShipmentStatus } from "@/features/shipments/api";
+import { startPayment } from "@/features/payments/api";
+import { markNotificationRead, updateCourierAvailability, updateProfile } from "@/features/users/api";
+import type { DashboardStats, AdminUser, AuditEntry } from "@/features/admin/api";
+import type { Hub, Zone } from "@/features/operations/api";
+import type { Notification as Notice } from "@/features/users/api";
+import {
+  createCourier,
+  deleteUser as deleteUserRequest,
+  updateUserRole,
+} from "@/features/admin/api";
+import {
+  calculateRoutePrice,
+  createHub as createHubRequest,
+  createZone as createZoneRequest,
+  deleteHub as deleteHubRequest,
+  savePricing,
+  setHubActive,
+} from "@/features/operations/api";
 
 const courierSchema = z.object({
   name: z.string().trim().min(2).max(100),
@@ -90,6 +102,7 @@ const profileFormSchema = z.object({
   name: z.string().trim().min(2).max(100),
   phone: z.union([z.string().trim().min(8).max(20), z.literal("")]),
 });
+const courierAvailabilitySchema = z.enum(["AVAILABLE", "BUSY", "OFFLINE"]);
 
 const customerItems = [
   { id: "overview", label: "Overview", icon: LayoutDashboard },
@@ -160,10 +173,7 @@ export function DashboardShell() {
   const searchFilter = searchParams.get("search") || "";
   const statusFilter = searchParams.get("status") || "";
 
-  const profileQuery = useQuery({
-    queryKey: ["profile"],
-    queryFn: async () => (await apiRequest<User>("/users/me")).data,
-  });
+  const profileQuery = useCurrentUser();
   const user = profileQuery.data || cachedUser;
   useEffect(() => {
     if (profileQuery.data) setUser(profileQuery.data);
@@ -175,58 +185,27 @@ export function DashboardShell() {
   }, [profileQuery.isError, profileQuery.error, router]);
   useEffect(() => {
     const returnToLogin = () => router.replace("/login");
-    window.addEventListener("parcelpilot:unauthorized", returnToLogin);
-    return () => window.removeEventListener("parcelpilot:unauthorized", returnToLogin);
+    window.addEventListener("GOparcel:unauthorized", returnToLogin);
+    return () => window.removeEventListener("GOparcel:unauthorized", returnToLogin);
   }, [router]);
 
   const role: Role = user?.role || "CUSTOMER";
   const navItems = role === "ADMIN" ? adminItems : role === "COURIER" ? courierItems : customerItems;
   const tab = navItems.some((item) => item.id === requestedTab) ? requestedTab : "overview";
-  const shipmentQuery = useQuery({
-    queryKey: ["shipments", role, searchFilter, statusFilter],
-    queryFn: async () => {
-      const params = new URLSearchParams({ page: "1", limit: "100" });
-      if (searchFilter) params.set("search", searchFilter);
-      if (statusFilter) params.set("status", statusFilter);
-      return (await apiRequest<Shipment[]>(`/shipments?${params.toString()}`)).data;
-    },
-    enabled: Boolean(user),
-  });
-  const statsQuery = useQuery({
-    queryKey: ["admin-dashboard"],
-    queryFn: async () => (await apiRequest<DashboardStats>("/admin/dashboard")).data,
-    enabled: role === "ADMIN",
-  });
-  const courierQuery = useQuery({
-    queryKey: ["courier-list"],
-    queryFn: async () => (await apiRequest<AdminUser[]>("/admin/users?role=COURIER&limit=100")).data,
-    enabled: role === "ADMIN" && (tab === "shipments" || tab === "people"),
-  });
-  const peopleQuery = useQuery({
-    queryKey: ["people"],
-    queryFn: async () => (await apiRequest<AdminUser[]>("/admin/users?limit=100")).data,
-    enabled: role === "ADMIN" && tab === "people",
-  });
-  const zonesQuery = useQuery({
-    queryKey: ["zones"],
-    queryFn: async () => (await apiRequest<Zone[]>("/operations/zones")).data,
-    enabled: role === "ADMIN" && (tab === "pricing" || tab === "operations"),
-  });
-  const hubsQuery = useQuery({
-    queryKey: ["hubs"],
-    queryFn: async () => (await apiRequest<Hub[]>("/operations/hubs")).data,
-    enabled: role === "ADMIN" && (tab === "operations" || tab === "pricing"),
-  });
-  const auditQuery = useQuery({
-    queryKey: ["audit-logs"],
-    queryFn: async () => (await apiRequest<AuditEntry[]>("/admin/audit-logs?limit=50")).data,
-    enabled: role === "ADMIN" && tab === "audit",
-  });
-  const notificationsQuery = useQuery({
-    queryKey: ["notifications"],
-    queryFn: async () => (await apiRequest<Notice[]>("/users/notifications")).data,
-    enabled: Boolean(user) && tab === "notifications",
-  });
+  const shipmentQuery = useShipments(
+    { page: 1, limit: 100, search: searchFilter, status: statusFilter },
+    Boolean(user),
+  );
+  const statsQuery = useAdminDashboard(role === "ADMIN");
+  const courierQuery = useAdminPeople(
+    "COURIER",
+    role === "ADMIN" && (tab === "shipments" || tab === "people"),
+  );
+  const peopleQuery = useAdminPeople(undefined, role === "ADMIN" && tab === "people");
+  const zonesQuery = useZones(role === "ADMIN" && (tab === "pricing" || tab === "operations"));
+  const hubsQuery = useHubs(false, role === "ADMIN" && (tab === "operations" || tab === "pricing"));
+  const auditQuery = useAuditTrail(role === "ADMIN" && tab === "audit");
+  const notificationsQuery = useNotifications(Boolean(user) && tab === "notifications");
 
   const invalidate = async () => {
     await Promise.all([
@@ -238,32 +217,31 @@ export function DashboardShell() {
     ]);
   };
   const actionMutation = useMutation({
-    mutationFn: ({ path, method, body }: { path: string; method: string; body?: unknown }) =>
-      apiRequest(path, { method, body: body === undefined ? undefined : JSON.stringify(body) }),
+    mutationFn: (action: { shipmentId: string; courierId: string } | { notificationId: string }) =>
+      "shipmentId" in action
+        ? assignCourier(action.shipmentId, action.courierId)
+        : markNotificationRead(action.notificationId),
     onSuccess: () => { setError(""); void invalidate(); },
     onError: (cause) => setError(cause instanceof Error ? cause.message : "The action could not be completed."),
   });
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: ShipmentStatus }) =>
-      apiRequest(`/shipments/${id}/status`, {
-        method: "PATCH",
-        body: JSON.stringify({ status }),
-      }),
+      updateShipmentStatus(id, status),
     onSuccess: () => { setError(""); void invalidate(); },
     onError: (cause) => setError(cause instanceof Error ? cause.message : "Status could not be updated."),
   });
   const cancelMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/shipments/${id}/cancel`, { method: "PATCH" }),
+    mutationFn: (id: string) => cancelShipment(id),
     onSuccess: () => { setError(""); void invalidate(); },
     onError: (cause) => setError(cause instanceof Error ? cause.message : "Shipment could not be cancelled."),
   });
   const logoutMutation = useMutation({
-    mutationFn: () => apiRequest("/auth/logout", { method: "POST", body: JSON.stringify({}) }),
+    mutationFn: () => logout(),
     onSuccess: () => { setUser(null); queryClient.clear(); router.replace("/login"); },
     onError: (cause) => setError(cause instanceof Error ? cause.message : "Sign out could not be completed."),
   });
   const availabilityMutation = useMutation({
-    mutationFn: (availability: string) => apiRequest("/users/courier/availability", { method: "PATCH", body: JSON.stringify({ availability }) }),
+    mutationFn: (availability: z.infer<typeof courierAvailabilitySchema>) => updateCourierAvailability(availability),
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["profile"] }); },
     onError: (cause) => setError(cause instanceof Error ? cause.message : "Availability could not be changed."),
   });
@@ -297,11 +275,8 @@ export function DashboardShell() {
   async function handlePayment(shipmentId: string) {
     try {
       setError("");
-      const response = await apiRequest<{ paymentId: string; paymentURL: string }>("/payments/initiate", {
-        method: "POST",
-        body: JSON.stringify({ shipmentId, provider: "BKASH" }),
-      });
-      window.location.assign(response.data.paymentURL);
+      const payment = await startPayment(shipmentId);
+      window.location.assign(payment.paymentURL);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The bKash checkout could not be started.");
     }
@@ -313,7 +288,7 @@ export function DashboardShell() {
     <label className="flex h-10 items-center gap-2 rounded-xl border border-[#dfe6de] bg-white px-3 text-[11px] font-extrabold text-[#526259]">
       <span className={`size-2 rounded-full ${user?.courierProfile?.availability === "AVAILABLE" ? "bg-[#54a776]" : user?.courierProfile?.availability === "BUSY" ? "bg-[#e2a24d]" : "bg-[#99a49c]"}`} />
       <span className="hidden sm:inline">Availability</span>
-      <select aria-label="Courier availability" value={user?.courierProfile?.availability || "OFFLINE"} onChange={(event) => availabilityMutation.mutate(event.target.value)} className="max-w-[102px] cursor-pointer bg-transparent font-extrabold outline-none">
+      <select aria-label="Courier availability" value={user?.courierProfile?.availability || "OFFLINE"} onChange={(event) => { const availability = courierAvailabilitySchema.safeParse(event.target.value); if (availability.success) availabilityMutation.mutate(availability.data); }} className="max-w-[102px] cursor-pointer bg-transparent font-extrabold outline-none">
         <option value="AVAILABLE">Available</option><option value="BUSY">Busy</option><option value="OFFLINE">Offline</option>
       </select>
     </label>
@@ -341,17 +316,25 @@ export function DashboardShell() {
         <div className="mx-auto flex h-[68px] max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-7 lg:px-10">
           <div className="flex items-center gap-3">
             <button type="button" onClick={() => setMobileNavOpen((open) => !open)} aria-label={mobileNavOpen ? "Close navigation" : "Open navigation"} aria-expanded={mobileNavOpen} aria-controls="dashboard-navigation" className="grid size-9 place-items-center rounded-xl border border-[#e1e8df] bg-white text-[#476052] lg:hidden">{mobileNavOpen ? <X size={18} /> : <Menu size={18} />}</button>
-            <Link href="/" className="flex items-center gap-2 text-[17px] font-extrabold tracking-[-.06em]"><span className="grid size-9 place-items-center rounded-xl bg-[#176b4d] text-white"><Box size={17} /></span><span>parcel<span className="text-[#176b4d]">pilot</span></span></Link>
+            <Link href="/" className="flex items-center gap-2 text-[17px] font-extrabold tracking-[-.06em]"><span className="grid size-9 place-items-center rounded-xl bg-[#176b4d] text-white"><Box size={17} /></span><span>GO<span className="text-[#176b4d]">parcel</span></span></Link>
             <span className="hidden h-6 w-px bg-[#dce4dc] sm:block" />
             <span className="hidden text-[10px] font-extrabold uppercase tracking-[.13em] text-[#829087] sm:block">{role.toLowerCase()} workspace</span>
           </div>
           <div className="flex items-center gap-2.5">
             {headerAction}
+            <ThemeToggle />
             <Tooltip content={unreadCount ? `${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}` : "Notifications"}>
               <button type="button" onClick={() => navTo("notifications")} aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`} className="relative grid size-10 place-items-center rounded-xl border border-[#e1e8df] bg-white text-[#607267] transition hover:text-[#176b4d]"><Bell size={17} />{unreadCount > 0 ? <span className="absolute right-2 top-2 size-2 rounded-full border border-white bg-[#dd8262]" /> : null}</button>
             </Tooltip>
-            <span className="hidden size-9 place-items-center rounded-full bg-[#dcebe0] text-xs font-extrabold text-[#2b6540] sm:grid">{user?.name?.slice(0, 1).toUpperCase() || "P"}</span>
-            <button type="button" onClick={() => logoutMutation.mutate()} disabled={logoutMutation.isPending} aria-label="Log out" className="grid size-10 place-items-center rounded-xl border border-[#e1e8df] bg-white text-[#6b7970] transition hover:border-[#e5c7c0] hover:text-[#a64e43] disabled:opacity-50"><LogOut size={17} /></button>
+            <details className="relative">
+              <summary aria-label="Open profile menu" className="grid size-10 cursor-pointer list-none place-items-center rounded-full bg-[#dcebe0] text-xs font-extrabold text-[#2b6540]">{user?.name?.slice(0, 1).toUpperCase() || "P"}</summary>
+              <div className="absolute right-0 top-12 z-40 w-56 rounded-2xl border border-[#e3eae2] bg-white p-2 shadow-xl">
+                <div className="border-b border-[#edf0eb] px-3 py-2.5"><p className="truncate text-xs font-extrabold">{user?.name}</p><p className="mt-1 truncate text-[10px] text-[#829087]">{user?.email}</p></div>
+                <Link href="/dashboard?tab=account" className="mt-1 block rounded-xl px-3 py-2.5 text-xs font-bold text-[#52645a] hover:bg-[#f2f6f1]">Profile</Link>
+                <Link href="/dashboard?tab=notifications" className="block rounded-xl px-3 py-2.5 text-xs font-bold text-[#52645a] hover:bg-[#f2f6f1]">Notifications</Link>
+                <button type="button" onClick={() => logoutMutation.mutate()} disabled={logoutMutation.isPending} className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-[#a64e43] hover:bg-[#fff5f2] disabled:opacity-50"><LogOut size={14} />{logoutMutation.isPending ? "Signing out…" : "Log out"}</button>
+              </div>
+            </details>
           </div>
         </div>
       </header>
@@ -390,7 +373,7 @@ export function DashboardShell() {
               {tab === "overview" ? (
                 <Overview role={role} user={user} shipments={shipments} shipmentsLoading={shipmentQuery.isLoading} stats={statsQuery.data} statsLoading={statsQuery.isLoading} inProgress={inProgress.length} delivered={delivered.length} payment={handlePayment} />
               ) : tab === "shipments" ? (
-                <ShipmentsPanel role={role} shipments={visibleShipments} loading={shipmentQuery.isLoading} couriers={courierQuery.data || []} updating={statusMutation.isPending || actionMutation.isPending || cancelMutation.isPending} search={searchFilter} status={statusFilter} onFilters={updateShipmentFilters} onStatus={updateStatus} onCancel={(shipmentId) => cancelMutation.mutate(shipmentId)} onAssign={(shipmentId, courierId) => actionMutation.mutate({ path: `/shipments/${shipmentId}/assign`, method: "POST", body: { courierId } })} onPayment={handlePayment} error={shipmentQuery.isError ? shipmentQuery.error.message : ""} />
+                <ShipmentsPanel role={role} shipments={visibleShipments} loading={shipmentQuery.isLoading} couriers={courierQuery.data || []} updating={statusMutation.isPending || actionMutation.isPending || cancelMutation.isPending} search={searchFilter} status={statusFilter} onFilters={updateShipmentFilters} onStatus={updateStatus} onCancel={(shipmentId) => cancelMutation.mutate(shipmentId)} onAssign={(shipmentId, courierId) => actionMutation.mutate({ shipmentId, courierId })} onPayment={handlePayment} error={shipmentQuery.isError ? shipmentQuery.error.message : ""} />
               ) : tab === "people" && role === "ADMIN" ? (
                 <PeoplePanel users={peopleQuery.data || []} loading={peopleQuery.isLoading} currentUserId={user.id} onCreated={() => { void queryClient.invalidateQueries({ queryKey: ["people"] }); }} />
               ) : tab === "operations" && role === "ADMIN" ? (
@@ -400,7 +383,7 @@ export function DashboardShell() {
               ) : tab === "audit" && role === "ADMIN" ? (
                 <AuditPanel entries={auditQuery.data || []} loading={auditQuery.isLoading} />
               ) : tab === "notifications" ? (
-                <NotificationsPanel items={notificationsQuery.data || []} loading={notificationsQuery.isLoading} onRead={(id) => actionMutation.mutate({ path: `/users/notifications/${id}/read`, method: "PATCH" })} />
+                <NotificationsPanel items={notificationsQuery.data || []} loading={notificationsQuery.isLoading} onRead={(id) => actionMutation.mutate({ notificationId: id })} />
               ) : tab === "account" ? (
                 <AccountPanel role={role} user={user} onSaved={() => void queryClient.invalidateQueries({ queryKey: ["profile"] })} onError={setError} />
               ) : (
@@ -408,7 +391,7 @@ export function DashboardShell() {
               )}
             </>
           ) : null}
-          <footer className="mt-10 flex flex-col gap-1 border-t border-[#e6ebe4] pt-5 text-[10px] text-[#99a49c] sm:flex-row sm:items-center sm:justify-between"><span>ParcelPilot Logistics · Delivery, without the detour.</span><span>Signed in as {user?.email || "—"}</span></footer>
+          <footer className="mt-10 flex flex-col gap-1 border-t border-[#e6ebe4] pt-5 text-[10px] text-[#99a49c] sm:flex-row sm:items-center sm:justify-between"><span>GOparcel Logistics · Delivery, without the detour.</span><span>Signed in as {user?.email || "—"}</span></footer>
         </main>
       </div>
     </div>
@@ -417,6 +400,49 @@ export function DashboardShell() {
 
 function Overview({ role, user, shipments, shipmentsLoading, stats, statsLoading, inProgress, delivered, payment }: { role: Role; user: User; shipments: Shipment[]; shipmentsLoading: boolean; stats?: DashboardStats; statsLoading: boolean; inProgress: number; delivered: number; payment: (id: string) => void }) {
   const unpaid = shipments.filter((shipment) => !shipment.payments?.some((item) => item.status === "PAID"));
+  const activity = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - (6 - index));
+    const nextDate = new Date(date);
+    nextDate.setDate(nextDate.getDate() + 1);
+    const count = shipments.filter((shipment) => {
+      const createdAt = new Date(shipment.createdAt);
+      return createdAt >= date && createdAt < nextDate;
+    }).length;
+    return { label: date.toLocaleDateString("en", { weekday: "short" }), count };
+  });
+  const peakDay = Math.max(1, ...activity.map((day) => day.count));
+  const routeCounts = new Map<string, { count: number; pickupHubId: string; deliveryHubId: string }>();
+  for (const shipment of shipments) {
+    const from = shipment.pickupHub?.name;
+    const to = shipment.deliveryHub?.name;
+    const pickupHubId = shipment.pickupHub?.id;
+    const deliveryHubId = shipment.deliveryHub?.id;
+    if (from && to && pickupHubId && deliveryHubId) {
+      const route = `${from} → ${to}`;
+      const existing = routeCounts.get(route);
+      routeCounts.set(route, {
+        count: (existing?.count || 0) + 1,
+        pickupHubId,
+        deliveryHubId,
+      });
+    }
+  }
+  const frequentRoute = [...routeCounts.entries()].sort((a, b) => b[1].count - a[1].count)[0];
+  const agingBookings = shipments.filter((shipment) =>
+    ["PENDING", "PICKUP_SCHEDULED"].includes(shipment.status) &&
+    Date.now() - new Date(shipment.createdAt).getTime() > 24 * 60 * 60 * 1000,
+  ).length;
+  const insight = role === "ADMIN"
+    ? agingBookings
+      ? `${agingBookings} booking${agingBookings === 1 ? "" : "s"} in the loaded list have been awaiting pickup for more than a day. Review the shipment board.`
+      : "No booking in the loaded list has been waiting for pickup longer than a day."
+    : role === "CUSTOMER"
+      ? frequentRoute && frequentRoute[1].count > 1
+        ? `Your most-used route is ${frequentRoute[0]} (${frequentRoute[1].count} bookings). You can choose it again when you book.`
+        : "Your shipment history will surface repeat routes here as you book."
+      : `${inProgress} delivery${inProgress === 1 ? "" : "ies"} remain active in your current queue.`;
   return (
     <div className="space-y-6">
       {role === "ADMIN" ? (
@@ -442,6 +468,22 @@ function Overview({ role, user, shipments, shipmentsLoading, stats, statsLoading
         </div>
       )}
       {role === "CUSTOMER" && unpaid.some((item) => !["CANCELLED", "DELIVERED"].includes(item.status)) ? <section className="flex flex-col justify-between gap-3 rounded-2xl border border-[#e8dfcb] bg-[#fffaf0] p-4 sm:flex-row sm:items-center sm:px-5"><div><p className="text-xs font-extrabold text-[#735c34]">A quick heads-up</p><p className="mt-1 text-[11px] leading-5 text-[#8d7957]">You have shipments ready for payment. Complete checkout securely with bKash.</p></div><Link href="/dashboard?tab=shipments" className="inline-flex h-9 items-center gap-2 self-start rounded-lg bg-white px-3 text-[11px] font-extrabold text-[#785e31] shadow-sm">Review shipments <ArrowRight size={13} /></Link></section> : null}
+      <section className="grid gap-4 lg:grid-cols-[1.2fr_.8fr]">
+        <article className="rounded-2xl border border-[#e5ebe4] bg-white p-5">
+          <div className="flex items-start justify-between gap-3"><div><h2 className="text-sm font-extrabold">Shipment activity</h2><p className="mt-1 text-[10px] text-[#8c9890]">Bookings created over the last seven days · loaded records</p></div><span className="grid size-9 place-items-center rounded-xl bg-[#e6f2e9] text-[#37764e]"><Activity size={17} /></span></div>
+          <div role="img" aria-label={`Shipment bookings for the past week: ${activity.map((day) => `${day.label} ${day.count}`).join(", ")}`} className="mt-6 grid h-28 grid-cols-7 items-end gap-3">
+            {activity.map((day) => <div key={day.label} className="flex h-full flex-col items-center justify-end gap-2"><span className="text-[9px] font-bold text-[#829087]">{shipmentsLoading ? "…" : day.count}</span><span className="flex w-full flex-1 items-end"><span className="w-full rounded-t-md bg-[#64a87c] transition-all" style={{ height: `${Math.max(8, (day.count / peakDay) * 100)}%` }} /></span><span className="text-[9px] font-bold text-[#8c9890]">{day.label}</span></div>)}
+          </div>
+        </article>
+        <article className="rounded-2xl border border-[#dce9df] bg-[#edf5ee] p-5">
+          <div className="flex items-center gap-2 text-[#36734d]"><Sparkles size={16} /><p className="text-[10px] font-extrabold uppercase tracking-[.12em]">{role === "ADMIN" ? "Operations signal" : role === "CUSTOMER" ? "Route suggestion" : "Queue insight"}</p></div>
+          <p className="mt-3 text-sm font-semibold leading-6 text-[#304239]">{shipmentsLoading ? "Reviewing your latest shipment activity…" : insight}</p>
+          <p className="mt-3 text-[9px] leading-4 text-[#78867d]">Based on shipment history returned by your account. It is a planning hint, not a delivery-time guarantee.</p>
+          <Link href={role === "CUSTOMER" && frequentRoute && frequentRoute[1].count > 1
+            ? `/dashboard/shipments/new?pickupHubId=${encodeURIComponent(frequentRoute[1].pickupHubId)}&deliveryHubId=${encodeURIComponent(frequentRoute[1].deliveryHubId)}`
+            : "/dashboard?tab=shipments"} className="mt-4 inline-flex items-center gap-1 text-[10px] font-extrabold text-[#28734d]">{role === "CUSTOMER" && frequentRoute && frequentRoute[1].count > 1 ? "Book this route" : "Review shipments"} <ArrowRight size={12} /></Link>
+        </article>
+      </section>
       <div className="grid gap-6 xl:grid-cols-[1.5fr_.8fr]">
         <section className="overflow-hidden rounded-2xl border border-[#e5ebe4] bg-white">
           <div className="flex items-center justify-between border-b border-[#edf0eb] px-5 py-4"><div><h2 className="text-sm font-extrabold">Recent shipments</h2><p className="mt-1 text-[10px] text-[#8c9890]">{role === "COURIER" ? "Your latest assigned deliveries" : "Latest parcel activity"}</p></div><Link href="/dashboard?tab=shipments" className="inline-flex items-center gap-1 text-[10px] font-extrabold text-[#28734d]">View all <ArrowRight size={12} /></Link></div>
@@ -467,18 +509,54 @@ function Overview({ role, user, shipments, shipmentsLoading, stats, statsLoading
 
 function ShipmentsPanel({ role, shipments, loading, couriers, updating, search, status, onFilters, onStatus, onCancel, onAssign, onPayment, error }: { role: Role; shipments: Shipment[]; loading: boolean; couriers: AdminUser[]; updating: boolean; search: string; status: string; onFilters: (filters: { search?: string; status?: string }) => void; onStatus: (shipment: Shipment, status: ShipmentStatus) => void; onCancel: (shipmentId: string) => void; onAssign: (shipmentId: string, courierId: string) => void; onPayment: (shipmentId: string) => void; error: string }) {
   const [searchTerm, setSearchTerm] = useState(search);
+  const [dateRange, setDateRange] = useState("all");
+  const [location, setLocation] = useState("");
+  const [sort, setSort] = useState("newest");
+  const [page, setPage] = useState(1);
   useEffect(() => setSearchTerm(search), [search]);
+  const locations = useMemo(
+    () => Array.from(new Set(shipments.flatMap((shipment) => [
+      shipment.pickupHub?.name,
+      shipment.deliveryHub?.name,
+    ]).filter((name): name is string => Boolean(name)))).sort(),
+    [shipments],
+  );
+  const filteredShipments = useMemo(() => {
+    const cutoff = dateRange === "7" ? Date.now() - 7 * 24 * 60 * 60 * 1000
+      : dateRange === "30" ? Date.now() - 30 * 24 * 60 * 60 * 1000
+        : 0;
+    return shipments
+      .filter((shipment) => !cutoff || new Date(shipment.createdAt).getTime() >= cutoff)
+      .filter((shipment) => !location || shipment.pickupHub?.name === location || shipment.deliveryHub?.name === location)
+      .sort((a, b) => {
+        if (sort === "oldest") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        if (sort === "charge-high") return Number(b.deliveryCharge) - Number(a.deliveryCharge);
+        if (sort === "charge-low") return Number(a.deliveryCharge) - Number(b.deliveryCharge);
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+  }, [dateRange, location, shipments, sort]);
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil(filteredShipments.length / pageSize));
+  const pageShipments = filteredShipments.slice((page - 1) * pageSize, page * pageSize);
+  useEffect(() => setPage(1), [dateRange, location, search, status, sort]);
   return (
     <section className="overflow-hidden rounded-2xl border border-[#e5ebe4] bg-white">
       <div className="flex flex-col justify-between gap-3 border-b border-[#edf0eb] px-5 py-4 sm:flex-row sm:items-center"><div><h2 className="text-sm font-extrabold">{role === "COURIER" ? "Your delivery queue" : role === "CUSTOMER" ? "Your shipments" : "Network shipment board"}</h2><p className="mt-1 text-[10px] text-[#8c9890]">{role === "ADMIN" ? "Assign eligible parcels to an available courier." : "Select a tracking code to see the full parcel journey."}</p></div>{role === "CUSTOMER" ? <Link href="/dashboard/shipments/new" className="inline-flex h-9 items-center justify-center gap-1.5 self-start rounded-lg bg-[#176b4d] px-3 text-[10px] font-extrabold text-white"><Plus size={13} /> New shipment</Link> : null}</div>
-      <form onSubmit={(event) => { event.preventDefault(); onFilters({ search: searchTerm.trim() }); }} className="flex flex-col gap-2 border-b border-[#edf0eb] bg-[#fbfcfa] p-4 sm:flex-row">
+      <form onSubmit={(event) => { event.preventDefault(); onFilters({ search: searchTerm.trim() }); }} className="grid gap-2 border-b border-[#edf0eb] bg-[#fbfcfa] p-4 sm:grid-cols-2 xl:grid-cols-[minmax(200px,1fr)_170px_140px_180px_auto_auto]">
         <label className="flex h-10 flex-1 items-center gap-2 rounded-lg border border-[#e3e9e1] bg-white px-3 text-[#87938b]"><Search size={14} /><span className="sr-only">Search by tracking code or sender/recipient</span><input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Search tracking code or name" className="min-w-0 flex-1 text-xs font-medium text-[#35463b] outline-none placeholder:text-[#a3ada5]" /></label>
         <label className="sr-only" htmlFor="shipment-status-filter">Filter by status</label><select id="shipment-status-filter" value={status} onChange={(event) => onFilters({ status: event.target.value })} className="h-10 rounded-lg border border-[#e3e9e1] bg-white px-3 text-xs font-bold text-[#607066] outline-none"><option value="">All statuses</option>{["PENDING", "PICKUP_SCHEDULED", "PICKED_UP", "AT_ORIGIN_HUB", "IN_TRANSIT", "AT_DESTINATION_HUB", "OUT_FOR_DELIVERY", "DELIVERED", "FAILED_DELIVERY", "RETURNED", "CANCELLED"].map((item) => <option key={item} value={item}>{formatStatus(item)}</option>)}</select>
+        <label className="sr-only" htmlFor="shipment-date-filter">Filter by booking date</label><select id="shipment-date-filter" value={dateRange} onChange={(event) => setDateRange(event.target.value)} className="h-10 rounded-lg border border-[#e3e9e1] bg-white px-3 text-xs font-bold text-[#607066] outline-none"><option value="all">Any date</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option></select>
+        <label className="sr-only" htmlFor="shipment-location-filter">Filter by hub</label><select id="shipment-location-filter" value={location} onChange={(event) => setLocation(event.target.value)} className="h-10 rounded-lg border border-[#e3e9e1] bg-white px-3 text-xs font-bold text-[#607066] outline-none"><option value="">All hubs</option>{locations.map((name) => <option key={name} value={name}>{name}</option>)}</select>
+        <label className="sr-only" htmlFor="shipment-sort">Sort shipments</label><select id="shipment-sort" value={sort} onChange={(event) => setSort(event.target.value)} className="h-10 rounded-lg border border-[#e3e9e1] bg-white px-3 text-xs font-bold text-[#607066] outline-none"><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="charge-high">Highest charge</option><option value="charge-low">Lowest charge</option></select>
         <button type="submit" className="h-10 rounded-lg border border-[#dfe6de] bg-white px-4 text-[10px] font-extrabold text-[#52645a] transition hover:bg-[#f3f7f2]">Search</button>
-        {search || status ? <button type="button" onClick={() => { setSearchTerm(""); onFilters({ search: "", status: "" }); }} className="inline-flex h-10 items-center justify-center gap-1 rounded-lg px-2 text-[10px] font-bold text-[#829087]"><X size={13} /> Clear</button> : null}
+        {search || status || dateRange !== "all" || location ? <button type="button" onClick={() => { setSearchTerm(""); setDateRange("all"); setLocation(""); setPage(1); onFilters({ search: "", status: "" }); }} className="inline-flex h-10 items-center justify-center gap-1 rounded-lg px-2 text-[10px] font-bold text-[#829087]"><X size={13} /> Clear filters</button> : null}
       </form>
       {error ? <p role="alert" className="border-b border-[#f0d2cb] bg-[#fff5f2] px-5 py-3 text-xs font-semibold text-[#a5463b]">{error}</p> : null}
-      <ShipmentsList shipments={shipments} loading={loading} role={role} onStatus={onStatus} onCancel={onCancel} couriers={couriers} onAssign={onAssign} onPayment={onPayment} updating={updating} />
+      <ShipmentsList shipments={pageShipments} loading={loading} role={role} onStatus={onStatus} onCancel={onCancel} couriers={couriers} onAssign={onAssign} onPayment={onPayment} updating={updating} />
+      {!loading && filteredShipments.length > 0 ? <div className="flex flex-col gap-3 border-t border-[#edf0eb] px-5 py-3 text-[10px] font-semibold text-[#829087] sm:flex-row sm:items-center sm:justify-between">
+        <span>Showing {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, filteredShipments.length)} of {filteredShipments.length} shipments</span>
+        <div className="flex items-center gap-2"><button type="button" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="rounded-lg border border-[#dfe6de] bg-white px-3 py-2 disabled:opacity-40">Previous</button><span>Page {page} of {pageCount}</span><button type="button" disabled={page >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))} className="rounded-lg border border-[#dfe6de] bg-white px-3 py-2 disabled:opacity-40">Next</button></div>
+      </div> : null}
     </section>
   );
 }
@@ -516,27 +594,48 @@ function ShipmentsList({ shipments, loading, role, compact = false, onStatus, on
   );
 }
 
+function TablePager({ page, pages, total, pageSize, onPageChange }: { page: number; pages: number; total: number; pageSize: number; onPageChange: (page: number) => void }) {
+  return <div className="flex flex-col gap-3 border-t border-[#edf0eb] px-5 py-3 text-[10px] font-semibold text-[#829087] sm:flex-row sm:items-center sm:justify-between">
+    <span>Showing {total ? (page - 1) * pageSize + 1 : 0}–{Math.min(page * pageSize, total)} of {total}</span>
+    <div className="flex items-center gap-2"><button type="button" disabled={page <= 1} onClick={() => onPageChange(Math.max(1, page - 1))} className="rounded-lg border border-[#dfe6de] bg-white px-3 py-2 disabled:opacity-40">Previous</button><span>Page {page} of {pages}</span><button type="button" disabled={page >= pages} onClick={() => onPageChange(Math.min(pages, page + 1))} className="rounded-lg border border-[#dfe6de] bg-white px-3 py-2 disabled:opacity-40">Next</button></div>
+  </div>;
+}
+
 function PeoplePanel({ users, loading, currentUserId, onCreated }: { users: AdminUser[]; loading: boolean; currentUserId: string; onCreated: () => void }) {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [directorySearch, setDirectorySearch] = useState("");
+  const [directoryPage, setDirectoryPage] = useState(1);
+  const directoryUsers = useMemo(() => users.filter((person) =>
+    `${person.name} ${person.email} ${person.role} ${person.courierProfile?.availability || ""}`
+      .toLowerCase()
+      .includes(directorySearch.trim().toLowerCase()),
+  ), [directorySearch, users]);
+  const directoryPageSize = 10;
+  const directoryPageCount = Math.max(1, Math.ceil(directoryUsers.length / directoryPageSize));
+  const pagedDirectoryUsers = directoryUsers.slice(
+    (directoryPage - 1) * directoryPageSize,
+    directoryPage * directoryPageSize,
+  );
+  useEffect(() => setDirectoryPage(1), [directorySearch]);
   const courierForm = useForm<z.input<typeof courierSchema>, unknown, z.output<typeof courierSchema>>({
     resolver: zodResolver(courierSchema),
     defaultValues: { name: "", email: "", password: "", phone: "", vehicleType: "BIKE" },
   });
   const mutation = useMutation({
-    mutationFn: (values: z.output<typeof courierSchema>) => apiRequest("/admin/couriers", { method: "POST", body: JSON.stringify({ ...values, phone: values.phone || undefined }) }),
+    mutationFn: (values: z.output<typeof courierSchema>) => createCourier({ ...values, phone: values.phone || undefined }),
     onSuccess: () => { setMessage("Courier account created and verified."); setError(""); courierForm.reset(); onCreated(); void queryClient.invalidateQueries({ queryKey: ["courier-list"] }); },
     onError: (cause) => setError(cause instanceof Error ? cause.message : "Could not create courier."),
   });
   const updateRole = useMutation({
-    mutationFn: ({ id, role }: { id: string; role: Role }) => apiRequest(`/admin/users/${id}/role`, { method: "PATCH", body: JSON.stringify({ role }) }),
+    mutationFn: ({ id, role }: { id: string; role: Role }) => updateUserRole(id, role),
     onSuccess: () => { void queryClient.invalidateQueries({ queryKey: ["people"] }); },
     onError: (cause) => setError(cause instanceof Error ? cause.message : "Role update failed."),
   });
   const deleteUser = useMutation({
-    mutationFn: (id: string) => apiRequest(`/admin/users/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => deleteUserRequest(id),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["people"] }),
     onError: (cause) => setError(cause instanceof Error ? cause.message : "Account deletion failed."),
   });
@@ -554,8 +653,8 @@ function PeoplePanel({ users, loading, currentUserId, onCreated }: { users: Admi
       {error ? <p role="alert" className="px-5 pt-3 text-xs font-semibold text-[#a5463b]">{error}</p> : null}{message ? <p role="status" className="px-5 pt-3 text-xs font-semibold text-[#36724d]">{message}</p> : null}
     </section>
     <section className="overflow-hidden rounded-2xl border border-[#e5ebe4] bg-white">
-      <div className="border-b border-[#edf0eb] px-5 py-4"><h2 className="text-sm font-extrabold">User directory</h2><p className="mt-1 text-[10px] text-[#8c9890]">Change roles or soft-delete an account. Your own account cannot be changed here.</p></div>
-      {loading ? <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-lg" />)}</div> : <div className="overflow-x-auto"><table className="w-full min-w-[680px] text-left"><thead><tr className="text-[9px] font-extrabold uppercase tracking-wider text-[#9aa59d]"><th className="px-5 py-3">Person</th><th className="px-5 py-3">Role</th><th className="px-5 py-3">Courier status</th><th className="px-5 py-3">Manage role</th><th className="px-5 py-3">Account</th></tr></thead><tbody>{users.map((person) => <tr key={person.id} className="border-t border-[#f0f2ee]"><td className="px-5 py-3"><p className="text-xs font-bold">{person.name}</p><p className="mt-1 text-[10px] text-[#89958d]">{person.email}</p></td><td className="px-5 py-3"><span className="rounded-full bg-[#eff3ed] px-2.5 py-1 text-[9px] font-extrabold text-[#53665a]">{person.role}</span></td><td className="px-5 py-3 text-[10px] text-[#77847a]">{person.courierProfile?.availability || "—"}</td><td className="px-5 py-3"><select aria-label={`Change role for ${person.name}`} value={person.role} disabled={person.id === currentUserId} onChange={(event) => updateRole.mutate({ id: person.id, role: event.target.value as Role })} className="rounded-lg border border-[#e2e8e1] bg-white px-2 py-1.5 text-[10px] font-bold disabled:cursor-not-allowed disabled:opacity-50"><option value="CUSTOMER">Customer</option><option value="COURIER">Courier</option><option value="ADMIN">Admin</option></select></td><td className="px-5 py-3">{person.id === currentUserId ? <span className="text-[9px] text-[#9aa49c]">Current account</span> : <ConfirmationDialog trigger={<button type="button" className="text-[10px] font-bold text-[#a64e43] hover:underline">Delete</button>} title={`Delete ${person.name}?`} description="This account will be soft-deleted and will no longer be able to sign in." confirmLabel="Delete account" destructive onConfirm={() => deleteUser.mutate(person.id)} />}</td></tr>)}</tbody></table></div>}
+      <div className="flex flex-col justify-between gap-3 border-b border-[#edf0eb] px-5 py-4 sm:flex-row sm:items-center"><div><h2 className="text-sm font-extrabold">User directory</h2><p className="mt-1 text-[10px] text-[#8c9890]">Change roles or soft-delete an account. Your own account cannot be changed here.</p></div><label className="flex h-9 items-center gap-2 rounded-lg border border-[#dfe6de] bg-white px-3 text-[#87938b]"><Search size={13} /><span className="sr-only">Filter users by name, email, role, or courier status</span><input value={directorySearch} onChange={(event) => setDirectorySearch(event.target.value)} placeholder="Filter users…" className="w-full text-xs outline-none placeholder:text-[#a3ada5] sm:w-48" /></label></div>
+      {loading ? <div className="space-y-3 p-5">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-12 rounded-lg" />)}</div> : <><div className="overflow-x-auto"><table className="w-full min-w-[680px] text-left"><thead><tr className="text-[9px] font-extrabold uppercase tracking-wider text-[#9aa59d]"><th className="px-5 py-3">Person</th><th className="px-5 py-3">Role</th><th className="px-5 py-3">Courier status</th><th className="px-5 py-3">Manage role</th><th className="px-5 py-3">Account</th></tr></thead><tbody>{pagedDirectoryUsers.map((person) => <tr key={person.id} className="border-t border-[#f0f2ee]"><td className="px-5 py-3"><p className="text-xs font-bold">{person.name}</p><p className="mt-1 text-[10px] text-[#89958d]">{person.email}</p></td><td className="px-5 py-3"><span className="rounded-full bg-[#eff3ed] px-2.5 py-1 text-[9px] font-extrabold text-[#53665a]">{person.role}</span></td><td className="px-5 py-3 text-[10px] text-[#77847a]">{person.courierProfile?.availability || "—"}</td><td className="px-5 py-3"><select aria-label={`Change role for ${person.name}`} value={person.role} disabled={person.id === currentUserId} onChange={(event) => updateRole.mutate({ id: person.id, role: event.target.value as Role })} className="rounded-lg border border-[#e2e8e1] bg-white px-2 py-1.5 text-[10px] font-bold disabled:cursor-not-allowed disabled:opacity-50"><option value="CUSTOMER">Customer</option><option value="COURIER">Courier</option><option value="ADMIN">Admin</option></select></td><td className="px-5 py-3">{person.id === currentUserId ? <span className="text-[9px] text-[#9aa49c]">Current account</span> : <ConfirmationDialog trigger={<button type="button" className="text-[10px] font-bold text-[#a64e43] hover:underline">Delete</button>} title={`Delete ${person.name}?`} description="This account will be soft-deleted and will no longer be able to sign in." confirmLabel="Delete account" destructive onConfirm={() => deleteUser.mutate(person.id)} />}</td></tr>)}</tbody></table>{!pagedDirectoryUsers.length ? <p className="p-5 text-xs text-[#829087]">No users match the current filter.</p> : null}</div><TablePager page={directoryPage} pages={directoryPageCount} total={directoryUsers.length} pageSize={directoryPageSize} onPageChange={setDirectoryPage} /></>}
     </section>
   </div>;
 }
@@ -563,7 +662,20 @@ function PeoplePanel({ users, loading, currentUserId, onCreated }: { users: Admi
 function OperationsPanel({ zones, hubs, loading, onRefresh }: { zones: Zone[]; hubs: Hub[]; loading: boolean; onRefresh: () => void }) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [hubSearch, setHubSearch] = useState("");
+  const [hubStatus, setHubStatus] = useState("all");
+  const [hubPage, setHubPage] = useState(1);
   const queryClient = useQueryClient();
+  const filteredHubs = useMemo(() => hubs.filter((hub) =>
+    `${hub.name} ${hub.code} ${hub.city} ${hub.address} ${hub.zone?.name || ""}`
+      .toLowerCase()
+      .includes(hubSearch.trim().toLowerCase()) &&
+    (hubStatus === "all" || String(hub.isActive) === hubStatus),
+  ), [hubSearch, hubStatus, hubs]);
+  const hubPageSize = 10;
+  const hubPageCount = Math.max(1, Math.ceil(filteredHubs.length / hubPageSize));
+  const pagedHubs = filteredHubs.slice((hubPage - 1) * hubPageSize, hubPage * hubPageSize);
+  useEffect(() => setHubPage(1), [hubSearch, hubStatus]);
   const zoneForm = useForm<z.input<typeof zoneFormSchema>, unknown, z.output<typeof zoneFormSchema>>({
     resolver: zodResolver(zoneFormSchema),
     defaultValues: { name: "" },
@@ -573,22 +685,22 @@ function OperationsPanel({ zones, hubs, loading, onRefresh }: { zones: Zone[]; h
     defaultValues: { name: "", code: "", city: "", address: "", zoneId: "" },
   });
   const createZone = useMutation({
-    mutationFn: (values: z.output<typeof zoneFormSchema>) => apiRequest("/operations/zones", { method: "POST", body: JSON.stringify(values) }),
+    mutationFn: (values: z.output<typeof zoneFormSchema>) => createZoneRequest(values.name),
     onSuccess: () => { zoneForm.reset(); setMessage("Zone created."); setError(""); void queryClient.invalidateQueries({ queryKey: ["zones"] }); },
     onError: (cause) => setError(cause instanceof Error ? cause.message : "Could not create zone."),
   });
   const createHub = useMutation({
-    mutationFn: (values: z.output<typeof hubFormSchema>) => apiRequest("/operations/hubs", { method: "POST", body: JSON.stringify(values) }),
+    mutationFn: (values: z.output<typeof hubFormSchema>) => createHubRequest(values),
     onSuccess: () => { hubForm.reset(); setMessage("Hub created."); setError(""); onRefresh(); },
     onError: (cause) => setError(cause instanceof Error ? cause.message : "Could not create hub."),
   });
   const toggleHub = useMutation({
-    mutationFn: (hub: Hub) => apiRequest(`/operations/hubs/${hub.id}`, { method: "PATCH", body: JSON.stringify({ isActive: !hub.isActive }) }),
+    mutationFn: (hub: Hub) => setHubActive(hub.id, !hub.isActive),
     onSuccess: onRefresh,
     onError: (cause) => setError(cause instanceof Error ? cause.message : "Hub update failed."),
   });
   const deleteHub = useMutation({
-    mutationFn: (id: string) => apiRequest(`/operations/hubs/${id}`, { method: "DELETE" }),
+    mutationFn: (id: string) => deleteHubRequest(id),
     onSuccess: onRefresh,
     onError: (cause) => setError(cause instanceof Error ? cause.message : "Hub removal failed."),
   });
@@ -615,8 +727,8 @@ function OperationsPanel({ zones, hubs, loading, onRefresh }: { zones: Zone[]; h
       </form>
     </div>
     <section className="overflow-hidden rounded-2xl border border-[#e5ebe4] bg-white">
-      <div className="border-b border-[#edf0eb] px-5 py-4"><h2 className="text-sm font-extrabold">Hub directory</h2><p className="mt-1 text-[10px] text-[#8c9890]">Disable or soft-delete a hub that is no longer operating.</p></div>
-      {loading ? <div className="skeleton m-5 h-36 rounded-xl" /> : <div className="overflow-x-auto"><table className="w-full min-w-[650px] text-left"><thead><tr className="text-[9px] font-extrabold uppercase tracking-wider text-[#9aa59d]"><th className="px-5 py-3">Hub</th><th className="px-5 py-3">Zone</th><th className="px-5 py-3">Address</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Actions</th></tr></thead><tbody>{hubs.map((hub) => <tr key={hub.id} className="border-t border-[#f0f2ee]"><td className="px-5 py-3"><p className="text-xs font-bold">{hub.name}</p><p className="mt-1 font-mono text-[9px] text-[#8b978f]">{hub.code} · {hub.city}</p></td><td className="px-5 py-3 text-[10px] text-[#758278]">{hub.zone?.name || "Not assigned"}</td><td className="max-w-48 truncate px-5 py-3 text-[10px] text-[#758278]">{hub.address}</td><td className="px-5 py-3"><span className={`rounded-full px-2 py-1 text-[9px] font-extrabold ${hub.isActive ? "bg-[#eaf5ec] text-[#3c8154]" : "bg-[#f2f2ef] text-[#8b948d]"}`}>{hub.isActive ? "Active" : "Inactive"}</span></td><td className="px-5 py-3"><button type="button" onClick={() => toggleHub.mutate(hub)} className="mr-3 text-[10px] font-bold text-[#35734d] hover:underline">{hub.isActive ? "Disable" : "Enable"}</button><ConfirmationDialog trigger={<button type="button" className="text-[10px] font-bold text-[#a64e43] hover:underline">Delete</button>} title={`Delete ${hub.name}?`} description="This hub will be archived and deactivated. It will no longer be available for new bookings." confirmLabel="Delete hub" destructive onConfirm={() => deleteHub.mutate(hub.id)} /></td></tr>)}</tbody></table>{hubs.length === 0 ? <p className="p-5 text-xs text-[#829087]">No hubs set up yet.</p> : null}</div>}
+      <div className="flex flex-col justify-between gap-3 border-b border-[#edf0eb] px-5 py-4 sm:flex-row sm:items-center"><div><h2 className="text-sm font-extrabold">Hub directory</h2><p className="mt-1 text-[10px] text-[#8c9890]">Filter by hub, city, zone, or operating status.</p></div><div className="flex flex-col gap-2 sm:flex-row"><label className="flex h-9 items-center gap-2 rounded-lg border border-[#dfe6de] bg-white px-3 text-[#87938b]"><Search size={13} /><span className="sr-only">Filter hubs by name, code, city, address, or zone</span><input value={hubSearch} onChange={(event) => setHubSearch(event.target.value)} placeholder="Filter hubs…" className="w-full text-xs outline-none placeholder:text-[#a3ada5] sm:w-40" /></label><label className="sr-only" htmlFor="hub-status-filter">Filter hubs by status</label><select id="hub-status-filter" value={hubStatus} onChange={(event) => setHubStatus(event.target.value)} className="h-9 rounded-lg border border-[#dfe6de] bg-white px-3 text-xs font-bold"><option value="all">All statuses</option><option value="true">Active</option><option value="false">Inactive</option></select></div></div>
+      {loading ? <div className="skeleton m-5 h-36 rounded-xl" /> : <><div className="overflow-x-auto"><table className="w-full min-w-[650px] text-left"><thead><tr className="text-[9px] font-extrabold uppercase tracking-wider text-[#9aa59d]"><th className="px-5 py-3">Hub</th><th className="px-5 py-3">Zone</th><th className="px-5 py-3">Address</th><th className="px-5 py-3">Status</th><th className="px-5 py-3">Actions</th></tr></thead><tbody>{pagedHubs.map((hub) => <tr key={hub.id} className="border-t border-[#f0f2ee]"><td className="px-5 py-3"><p className="text-xs font-bold">{hub.name}</p><p className="mt-1 font-mono text-[9px] text-[#8b978f]">{hub.code} · {hub.city}</p></td><td className="px-5 py-3 text-[10px] text-[#758278]">{hub.zone?.name || "Not assigned"}</td><td className="max-w-48 truncate px-5 py-3 text-[10px] text-[#758278]">{hub.address}</td><td className="px-5 py-3"><span className={`rounded-full px-2 py-1 text-[9px] font-extrabold ${hub.isActive ? "bg-[#eaf5ec] text-[#3c8154]" : "bg-[#f2f2ef] text-[#8b948d]"}`}>{hub.isActive ? "Active" : "Inactive"}</span></td><td className="px-5 py-3"><button type="button" onClick={() => toggleHub.mutate(hub)} className="mr-3 text-[10px] font-bold text-[#35734d] hover:underline">{hub.isActive ? "Disable" : "Enable"}</button><ConfirmationDialog trigger={<button type="button" className="text-[10px] font-bold text-[#a64e43] hover:underline">Delete</button>} title={`Delete ${hub.name}?`} description="This hub will be archived and deactivated. It will no longer be available for new bookings." confirmLabel="Delete hub" destructive onConfirm={() => deleteHub.mutate(hub.id)} /></td></tr>)}</tbody></table>{!pagedHubs.length ? <p className="p-5 text-xs text-[#829087]">No hubs match the current filters.</p> : null}</div><TablePager page={hubPage} pages={hubPageCount} total={filteredHubs.length} pageSize={hubPageSize} onPageChange={setHubPage} /></>}
     </section>
   </div>;
 }
@@ -633,12 +745,12 @@ function PricingPanel({ zones, hubs, loading, onSaved }: { zones: Zone[]; hubs: 
     defaultValues: { weightKg: 1 },
   });
   const save = useMutation({
-    mutationFn: (values: z.output<typeof pricingFormSchema>) => apiRequest("/operations/pricing", { method: "PUT", body: JSON.stringify(values) }),
+    mutationFn: (values: z.output<typeof pricingFormSchema>) => savePricing(values),
     onSuccess: () => { setMessage("Pricing rule saved."); setError(""); onSaved(); },
     onError: (cause) => setError(cause instanceof Error ? cause.message : "Could not save pricing."),
   });
   const calculate = useMutation({
-    mutationFn: async (values: z.output<typeof quoteFormSchema>) => (await apiRequest<{ deliveryCharge: number }>("/operations/pricing/calculate", { method: "POST", body: JSON.stringify(values) })).data,
+    mutationFn: (values: z.output<typeof quoteFormSchema>) => calculateRoutePrice(values),
     onSuccess: (data) => { setQuote(data.deliveryCharge); setError(""); },
     onError: (cause) => setError(cause instanceof Error ? cause.message : "Could not calculate route price."),
   });
@@ -687,7 +799,7 @@ function AccountPanel({ role, user, onSaved, onError }: { role: Role; user: User
     reset({ name: user.name, phone: user.phone || "" });
   }, [reset, user.name, user.phone]);
   const mutation = useMutation({
-    mutationFn: (values: z.output<typeof profileFormSchema>) => apiRequest<User>("/users/me", { method: "PATCH", body: JSON.stringify({ ...values, phone: values.phone || null }) }),
+    mutationFn: (values: z.output<typeof profileFormSchema>) => updateProfile({ ...values, phone: values.phone || null }),
     onSuccess: onSaved,
     onError: (cause) => onError(cause instanceof Error ? cause.message : "Profile update failed."),
   });
